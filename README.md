@@ -1,44 +1,71 @@
-# Engine Study (prototype)
+# Engine Study
 
-A disposable, local, single-user prototype for a study method: turn each course
-topic into an **engine** (an ordered procedure), test each engine **cold** from
-memory on a recurring basis, and log every mistake (**leak**). An engine's
-maturity only advances when you pass a cold test.
+An execution-first study method and the app that runs it. The method: turn each
+course topic into an **engine** (an ordered procedure fronted by a go/no-go
+**gate**), test each engine **cold** from memory, and log every mistake
+(**leak**) by type. Maturity advances only on a genuine, recorded pass.
 
-## Run
+---
+
+## ⭐ Source of truth for the build
+
+**[`COSMOS_V1_SPEC.md`](COSMOS_V1_SPEC.md) is the single source of truth for what to build (Cosmos v1).**
+It contains the full data model, per-feature acceptance criteria (**F1–F8**), and
+a fenced v2 roadmap. Build v1 to that spec.
+
+### For a build agent (Augment Cosmos) — read this first
+
+- ✅ **Build only what `COSMOS_V1_SPEC.md` specifies for v1** (features F1–F8; each has acceptance criteria).
+- ⛔ **Do NOT build anything under [`experimental/`](experimental/).** It is out-of-scope v2-spike work (voice, AI marking, Python backend), quarantined and labelled. See [`experimental/README.md`](experimental/README.md).
+- ⛔ **v1 has no AI, no voice, no backend, no accounts, no payments** — client-side TypeScript/React + `localStorage` only (spec §0 and §3).
+- **Three locked method decisions** (spec provenance note, 2026-07-05): RELIABLE requires 3 full-recall passes across a ≥48h window; mock misses clear only by explicit user action (never auto on a cold-recall pass); a failed precision check demotes RELIABLE→FRAGILE (intentional asymmetry).
+- **Protect friction.** The core rule the whole method depends on: never advance maturity without a recorded result, never reveal engine content before a written attempt exists, never let recognition substitute for recall.
+
+---
+
+## Repository map
+
+```
+COSMOS_V1_SPEC.md   ← BUILD THIS. Data model, F1–F8 acceptance criteria, fenced v2 roadmap.
+REFINEMENT.md       Six-course analysis consolidated into the requirements the spec was generated from.
+LEARNINGS.md        Prototype findings (the critical test-flow bug L1 + fixes) that drove the spec.
+EXTRACTION.md       Prompt v2 for turning course material into engines (feeds v2 AI generation).
+extractions/        Six-course extraction corpus (COURSE_01–06): validation + seed data + pitch evidence.
+src/                FROZEN reference prototype (see below). Do NOT extend; it predates the spec.
+experimental/       Quarantined v2-spike. NOT v1. Do not build. (voice / AI marking / Python backend)
+index.html, vite.config.ts, tsconfig.json, package.json, tailwind/postcss configs — prototype build.
+```
+
+---
+
+## The frozen prototype (`src/`)
+
+`src/` holds a disposable prototype (Vite + React + TypeScript + Tailwind,
+`localStorage`) that validated the method and produced the findings in
+`LEARNINGS.md`. **It is frozen reference, not the v1 codebase.** In particular it
+still uses the old single-axis maturity ladder (`DRAFTED → TESTED → STABLE →
+REFLEX`), which the spec **replaces** with a two-axis model (comprehension ×
+retrieval reliability). When building v1, follow `COSMOS_V1_SPEC.md`, not the
+prototype's data model.
+
+Run the prototype:
 
 ```bash
 npm install
-npm run dev
+npm run dev   # http://localhost:5173
 ```
 
-Then open the printed URL (default http://localhost:5173).
+---
 
-## Concept
+## What's intentionally not here
 
-- **Course** — a subject, groups engines.
-- **Engine** — `title`, `gate` (precondition), ordered `steps`, `trigger` (the
-  cue to use it), `satellites` (related facts). Maturity:
-  `DRAFTED → TESTED → STABLE → REFLEX`.
-- **Leak** — a logged mistake: `GATE_SKIP`, `WRONG_TOOL`, or `PRECISION`.
+- **No marketing/vaporware funnel.** Willingness-to-pay validation should describe only what v1 actually does and must not collect payment for unbuilt features; no such artifact is committed.
+- **No AI / voice / backend in the v1 tree** — those surfaces exist only, fenced, under `experimental/`, as reference for a possible v2.
 
-## Screens
+---
 
-1. **Dashboard** — create/select courses, see engines by course with maturity
-   badges, a "Study next" list (most due first), and maturity counts.
-2. **Engine Editor** — create/edit an engine, add/remove/reorder steps.
-3. **Test Runner** — the core loop. Content is **hidden** for cold recall; you
-   press PASS or FAIL first. FAIL logs a leak and never advances maturity; PASS
-   advances one step and stamps the test time (and can optionally log a leak).
-   Only *after* recording is the full engine revealed for self-check.
-4. **Leak Log** — all leaks, filterable by type and engine, with counts.
+## Storage & privacy
 
-## Storage
-
-Everything lives in `localStorage` under the key `engine-study-v1`. No backend,
-no accounts. Clearing site data wipes it.
-
-## Rules that matter
-
-- Maturity **never** advances automatically — only on a recorded PASS.
-- The Test Runner hides engine content until a result is recorded.
+Everything the app stores lives in the browser's `localStorage`. No backend, no
+accounts, no telemetry in v1. Clearing site data wipes it; export/import (spec
+F8) is the backup path.
