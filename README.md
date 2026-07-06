@@ -27,7 +27,7 @@ a fenced v2 roadmap. Build v1 to that spec.
 
 ```
 COSMOS_V1_SPEC.md   ← BUILD THIS. Data model, F1–F8 acceptance criteria, fenced v2 roadmap.
-SPEC_TIMED_MOCK.md  Companion feature spec: timed 2-question mock drill (candidate v1.1; not in locked v1).
+SPEC_TIMED_MOCK.md  Companion feature spec: timed 2-question mock drill (CONFIRMED v1.1 = v1 core + this; build v1 first).
 REFINEMENT.md       Six-course analysis consolidated into the requirements the spec was generated from.
 LEARNINGS.md        Prototype findings (the critical test-flow bug L1 + fixes) that drove the spec.
 EXTRACTION.md       Prompt v2 for turning course material into engines (feeds v2 AI generation).

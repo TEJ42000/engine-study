@@ -4,11 +4,17 @@ _Companion feature spec to [`COSMOS_V1_SPEC.md`](COSMOS_V1_SPEC.md). Version 202
 
 ## 0. Status & scope
 
-**Candidate feature (target: v1.1).** This is a spec-complete, build-ready design
-for the timed mock drill. It is **not** auto-merged into the locked v1 scope
-(F1–F8) — whether it ships in v1, v1.1, or later is a scope decision for the
-owner. The locked `COSMOS_V1_SPEC.md` is deliberately left untouched; this file
-is additive.
+**Confirmed for v1.1 (decided 2026-07-06).** This is a spec-complete, build-ready
+design for the timed mock drill. **v1.1 = the locked v1 (F1–F8) plus this feature**
+— a superset, not a change to the v1 core. `COSMOS_V1_SPEC.md` stays untouched
+(this file is additive), so v1 can ship without it and v1.1 layers it on.
+
+**Build dependency (read before implementing):** this feature extends the v1 data
+model — `TestSession`, the two-axis maturity machine, `LeakEntry`, and the engine
+store. **That v1 core must be implemented first.** As of this writing the repo
+contains only the *frozen reference prototype* (`src/`), which runs on the retired
+single-axis maturity model and is a different data model — do **not** build this
+feature onto it. Order of work: build v1 core to `COSMOS_V1_SPEC.md`, then this.
 
 **This spec supersedes the experimental sketch** at
 `experimental/src/frontend/components/MiniMockTrainer.tsx`. That sketch is a
@@ -227,9 +233,9 @@ canonical `TestSession` (mode `TIMED_MOCK`) is created carrying the same attempt
 - **Export:** the envelope (`COSMOS_V1_SPEC.md` F8) gains a `mockDrills` array.
   This is additive; if `schemaVersion` is bumped, old exports lacking the field
   default it to `[]` on import.
-- **Open decision — scope:** ship in v1.1, or defer to v2 alongside AI question
-  generation? (Manual selection needs no AI, so v1.1 is viable now; auto-selecting
-  cross-topic questions is trivial and deterministic.)
+- **Resolved (2026-07-06) — scope: v1.1.** Ships as v1.1 (v1 core + this feature).
+  Needs no AI; engine selection is deterministic (cross-course, most-due), so it is
+  buildable as soon as the v1 core exists.
 - **Open decision — stricter RELIABLE (optional):** consider requiring at least
   one `timed: true` PASS in the streak before an engine can reach RELIABLE
   ("must hold up under time"). Not baked in here because it would alter the locked

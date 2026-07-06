@@ -62,7 +62,7 @@ Say "planned" every time. Never imply these exist.
 - **[Planned] Applied fact-pattern questions** — practice routing to the right
   engine under fresh facts.
 - **[Planned] Timed 2-question mock drill** — context-switch under the clock;
-  spec'd (`SPEC_TIMED_MOCK.md`, candidate v1.1) but **not built yet**.
+  spec'd and confirmed for v1.1 (`SPEC_TIMED_MOCK.md`) but **not built yet**.
 - **[Exploratory] Voice drills.**
 
 ## 5. Honest confrontation grid
