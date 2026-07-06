@@ -16,6 +16,7 @@ a fenced v2 roadmap. Build v1 to that spec.
 ### For a build agent (Augment Cosmos) — read this first
 
 - ✅ **Build only what `COSMOS_V1_SPEC.md` specifies for v1** (features F1–F8; each has acceptance criteria).
+- 🧱 **Start from [`v1-core/`](v1-core/)** — a verified, UI-agnostic TypeScript implementation of the data model + the correctness-critical logic (two-axis maturity machine, study-next ordering, leak profile, export version gate). Build the React UI on top of it; don't re-derive those rules. It's isolated from the frozen prototype and its checks pass (`cd v1-core && npm run check`).
 - ⛔ **Do NOT build anything under [`experimental/`](experimental/).** It is out-of-scope v2-spike work (voice, AI marking, Python backend), quarantined and labelled. See [`experimental/README.md`](experimental/README.md).
 - ⛔ **v1 has no AI, no voice, no backend, no accounts, no payments** — client-side TypeScript/React + `localStorage` only (spec §0 and §3).
 - **Three locked method decisions** (spec provenance note, 2026-07-05): RELIABLE requires 3 full-recall passes across a ≥48h window; mock misses clear only by explicit user action (never auto on a cold-recall pass); a failed precision check demotes RELIABLE→FRAGILE (intentional asymmetry).
@@ -28,6 +29,7 @@ a fenced v2 roadmap. Build v1 to that spec.
 ```
 COSMOS_V1_SPEC.md   ← BUILD THIS. Data model, F1–F8 acceptance criteria, fenced v2 roadmap.
 SPEC_TIMED_MOCK.md  Companion feature spec: timed 2-question mock drill (CONFIRMED v1.1 = v1 core + this; build v1 first).
+v1-core/            Verified, UI-agnostic TS core (data model + pure logic) — the foundation Cosmos builds the React app on. Isolated from the prototype.
 REFINEMENT.md       Six-course analysis consolidated into the requirements the spec was generated from.
 LEARNINGS.md        Prototype findings (the critical test-flow bug L1 + fixes) that drove the spec.
 EXTRACTION.md       Prompt v2 for turning course material into engines (feeds v2 AI generation).

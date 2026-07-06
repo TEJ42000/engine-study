@@ -5,3 +5,4 @@ dist
 
 .claude
 *.tsbuildinfo
+v1-core/dist
