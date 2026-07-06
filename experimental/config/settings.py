@@ -54,5 +54,6 @@ LEAK_TREND_WINDOW_DAYS: int = 30
 
 # ── Export / Import ───────────────────────────────────────────────────────────
 
-EXPORT_SCHEMA_VERSION: str = "1.0.0"
+# schemaVersion is the number 1 (matches COSMOS_V1_SPEC.md §0 and v1-core).
+EXPORT_SCHEMA_VERSION: int = 1
 EXPORT_FILENAME_PREFIX: str = "engine-study-export"

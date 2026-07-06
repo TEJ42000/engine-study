@@ -10,6 +10,14 @@ import {
 } from './maturity';
 import { studyNext, computeLeakProfile } from './selectors';
 import { parseEnvelope, buildEnvelope, emptyData } from './persistence';
+import {
+  splitPastedLines,
+  extractPrecisionTargets,
+  stripPrecisionBraces,
+  suggestPrecisionTargets,
+  hasPrecisionTargets,
+} from './text';
+import { SEED } from './fixtures/seed';
 import type { Engine, LeakEntry, Result, SessionMode } from './types';
 
 let failures = 0;
@@ -224,6 +232,71 @@ console.log('persistence:');
   assert(
     older.ok === true && Array.isArray(older.data.mockDrills),
     'missing additive collection (mockDrills) defaults to []',
+  );
+}
+
+console.log('text helpers:');
+{
+  assert(
+    JSON.stringify(splitPastedLines('1. a\n2) b\n- c\n* d\n• e\n\n  f  ')) ===
+      JSON.stringify(['a', 'b', 'c', 'd', 'e', 'f']),
+    'splitPastedLines strips list markers, trims, drops blanks (AC2.2)',
+  );
+  assert(
+    JSON.stringify(
+      extractPrecisionTargets('see {{C-101/01}} and {{Art 2}} ok'),
+    ) === JSON.stringify(['C-101/01', 'Art 2']),
+    'extractPrecisionTargets pulls {{ }} spans',
+  );
+  assert(
+    stripPrecisionBraces('ceiling is {{20M}} EUR') === 'ceiling is 20M EUR',
+    'stripPrecisionBraces keeps inner text for normal render',
+  );
+  const sugg = suggestPrecisionTargets(
+    'Under Art 6(1) and C-212/13 Ryneš in 2014, per Schrems v Facebook.',
+  );
+  assert(
+    sugg.includes('Art 6(1)') &&
+      sugg.includes('C-212/13') &&
+      sugg.includes('2014') &&
+      sugg.some((s) => /Schrems v/.test(s)),
+    'suggestPrecisionTargets finds article refs, case numbers, years, X v Y (AC2.4)',
+  );
+}
+
+console.log('seed fixture:');
+{
+  assert(
+    SEED.courses.length >= 1 && SEED.engines.length >= 1,
+    'seed has courses + engines',
+  );
+  const eng = SEED.engines.find((e) => e.id === 'gdpr-applies');
+  assert(eng !== undefined, 'seed includes the gdpr-applies engine');
+  if (eng) {
+    const streakSessions = SEED.testSessions
+      .filter(
+        (s) =>
+          s.engineId === eng.id &&
+          (s.mode === 'FULL_RECALL' || s.mode === 'TIMED_MOCK'),
+      )
+      .sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt))
+      .map((s) => ({
+        result: s.result,
+        sessionMode: s.mode,
+        recordedAt: s.recordedAt,
+      }));
+    const replayed = fold(streakSessions);
+    assert(
+      replayed.retrievalReliability === eng.retrievalReliability &&
+        replayed.passStreak === eng.passStreak,
+      'seed is consistent: replaying sessions reproduces stored maturity',
+    );
+  }
+  assert(
+    SEED.engines.some((e) =>
+      hasPrecisionTargets([...e.steps, ...e.satellites].join(' ')),
+    ),
+    'seed exercises precision targets ({{ }} present)',
   );
 }
 

@@ -33,6 +33,7 @@ v1-core/            Verified, UI-agnostic TS core (data model + pure logic) — 
 REFINEMENT.md       Six-course analysis consolidated into the requirements the spec was generated from.
 LEARNINGS.md        Prototype findings (the critical test-flow bug L1 + fixes) that drove the spec.
 EXTRACTION.md       Prompt v2 for turning course material into engines (feeds v2 AI generation).
+DECISIONS.md        Single chronological log of the locked decisions (the "why").
 extractions/        Six-course extraction corpus (COURSE_01–06): validation + seed data + pitch evidence.
 src/                FROZEN reference prototype (see below). Do NOT extend; it predates the spec.
 experimental/       Quarantined v2-spike. NOT v1. Do not build. (voice / AI marking / Python backend)

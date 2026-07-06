@@ -6,3 +6,6 @@ export * from './types';
 export * from './maturity';
 export * from './selectors';
 export * from './persistence';
+export * from './text';
+// Seed/test data is intentionally NOT re-exported here — import it explicitly
+// from './fixtures/seed' when you want it.

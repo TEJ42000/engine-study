@@ -14,7 +14,7 @@ Every student's local store exports as a single JSON file conforming to this sch
 
 ```json
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": 1,
   "exportedAt": "ISO 8601 UTC string",
   "courses": [ /* Course[] — see §1.1 */ ],
   "engines": [ /* Engine[] — see §1.2 */ ],

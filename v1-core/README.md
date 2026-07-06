@@ -20,8 +20,10 @@ decisions**; those stay Cosmos's to make.
 | `maturity.ts` | `applyMaturityTransition` + `currentStreakStart` — the retrieval-reliability state machine (pure, no clock read) | §1.2 + locked decisions + SPEC_TIMED_MOCK §4 |
 | `selectors.ts` | `studyNext` ordering, `computeLeakProfile` (COMMITTED-only) | F7 / AC7.2 / AC7.3 / §1.6 |
 | `persistence.ts` | `buildEnvelope` / `parseEnvelope` — export + the schemaVersion gate (unknown version BLOCKS, never wipes) | F8 / AC8.1–8.3 |
+| `text.ts` | `splitPastedLines`, `extractPrecisionTargets` / `stripPrecisionBraces` / `suggestPrecisionTargets` — editor + precision-check helpers | F2 / AC2.2 / AC2.4 / F4 |
+| `fixtures/seed.ts` | `SEED` — the four Tech Law engines in v1 shape (test data + content head-start); import from `./fixtures/seed` | — |
 | `index.ts` | Barrel export — import the core from here | — |
-| `__checks__.ts` | Executable verification of every rule above | — |
+| `__checks__.ts` | Executable verification of every rule above (incl. seed consistency) | — |
 
 ## It is isolated from the frozen prototype
 
