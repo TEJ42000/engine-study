@@ -33,6 +33,7 @@ EXTRACTION.md       Prompt v2 for turning course material into engines (feeds v2
 extractions/        Six-course extraction corpus (COURSE_01–06): validation + seed data + pitch evidence.
 src/                FROZEN reference prototype (see below). Do NOT extend; it predates the spec.
 experimental/       Quarantined v2-spike. NOT v1. Do not build. (voice / AI marking / Python backend)
+marketing/          Honest validation/landing copy (planning; describes only real v1 features). Not part of the build.
 index.html, vite.config.ts, tsconfig.json, package.json, tailwind/postcss configs — prototype build.
 ```
 
