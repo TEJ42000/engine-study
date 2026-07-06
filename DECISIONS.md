@@ -47,3 +47,9 @@ by `experimental/src/pipeline/evaluator.py`. Newest last._
 - **Export `schemaVersion` is the number `1`** (not the string `"1.0.0"`) — matches
   `COSMOS_V1_SPEC.md` §0 and `v1-core/persistence.ts`. An unknown version blocks
   the import; it never wipes the store.
+- **Repo made public.** Resolves the prior external-404 (the repo was private, not
+  un-pushed — a private URL 404s for unauthorized viewers). Accepted tradeoff: the
+  six-course extraction corpus + specs are now world-readable. Standing rule set
+  alongside: **no API keys or secrets are ever committed** — v2's user-supplied API
+  key stays env/local and `.gitignore`'d. (Verified when logging this: no key/token
+  patterns in any tracked file.)
