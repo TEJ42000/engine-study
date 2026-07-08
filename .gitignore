@@ -6,3 +6,10 @@ dist
 .claude
 *.tsbuildinfo
 v1-core/dist
+
+# Secrets — public repo; never commit keys/creds.
+# v2's user-supplied API key stays local (env/settings file), never committed.
+.env
+.env.*
+*.key
+*.pem
