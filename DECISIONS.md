@@ -79,3 +79,9 @@ by `experimental/src/pipeline/evaluator.py`. Newest last._
   REFLEX→SOLID/RELIABLE). Spec now matches `migrate.ts` and prior decisions; closes the
   SPEC RECONCILIATION open loop. (Supersedes the "OPEN CONFLICT / not changed here"
   note in the MIGRATION RULING entry above.)
+- **F1–F8 deterministic backbone complete in `v1-core/`.** Filled the last pure-logic
+  gaps: F6 (`addMockRun` + derived MOCK leaks, `markMissDrilled`, `drillList`), F5
+  (`filterLeaks`/`leakCounts`), F7 (`maturityGrid`), F4 (`precisionItems`/
+  `engineHasPrecisionTargets`), F2 (`NEW_ENGINE_DEFAULTS`). 48/48 checks green. Every
+  F1–F8 AC now has agent-tested backing logic; only the React UI + human verification
+  remain (all Verified-by-Matej boxes still unchecked).

@@ -40,7 +40,7 @@ F8 (data layer + envelope/versioning + export/import) → F1/F2 → **F3** (veri
 | AC2.2 | Ordered steps add/remove/reorder; paste-split; empty rows filtered | ✓ `splitPastedLines` (split only) | **[ui-pending]** | ☐ |
 | AC2.3 | "Mark precision" wraps selection in `{{ }}`; braces hidden on render | ✓ `stripPrecisionBraces`/`extract` | **[ui-pending]** | ☐ |
 | AC2.4 | Deterministic precision suggester; each suggestion explicit-accept | ✓ `suggestPrecisionTargets` | **[ui-pending]** | ☐ |
-| AC2.5 | New engine SHAKY/UNTESTED/streak0/stacking-false; two badges; SOLID→SHAKY only | ✓ types/defaults | **[ui-pending]** | ☐ |
+| AC2.5 | New engine SHAKY/UNTESTED/streak0/stacking-false; two badges; SOLID→SHAKY only | ✓ `NEW_ENGINE_DEFAULTS` | **[ui-pending]** | ☐ |
 | AC2.6 | `stacking` per-engine checkbox; never a global rule | ✓ type field | **[ui-pending]** | ☐ |
 
 ## F3 — Test runner (type → reveal → grade) — the critical flow
@@ -60,40 +60,42 @@ F8 (data layer + envelope/versioning + export/import) → F1/F2 → **F3** (veri
 ## F4 — Precision-check mode
 | AC | Requires | Core logic | Status | Verified (Matej) |
 |---|---|---|---|---|
-| AC4.1 | Offered only for engines w/ ≥1 `{{target}}`; targets → blanks | ✓ `extractPrecisionTargets`/`hasPrecisionTargets` | **[ui-pending]** | ☐ |
+| AC4.1 | Offered only for engines w/ ≥1 `{{target}}`; targets → blanks | ✓ `engineHasPrecisionTargets`/`precisionItems` | **[ui-pending]** | ☐ |
 | AC4.2 | Fill → reveal → self-grade blanks; ≥1 wrong → PRECISION COMMITTED leak | ✓ `addLeak` (partial) | **[ui-pending]** | ☐ |
 | AC4.3 | Passed check advances nothing; failed demotes RELIABLE→FRAGILE; mode PRECISION_CHECK | ✓ `applyMaturityTransition` | **[ui-pending]** | ☐ |
 
 ## F5 — Leak log
 | AC | Requires | Core logic | Status | Verified (Matej) |
 |---|---|---|---|---|
-| AC5.1 | Filterable table (course/engine/type/status/source) + counts, COMMITTED vs GUARDED | — (needs table) | **[ui-pending]** | ☐ |
+| AC5.1 | Filterable table (course/engine/type/status/source) + counts, COMMITTED vs GUARDED | ✓ `filterLeaks`/`leakCounts` | **[ui-pending]** | ☐ |
 | AC5.2 | Manual leak entry (source MANUAL), either status, first-class | ✓ `addLeak` | **[ui-pending]** | ☐ |
 | AC5.3 | Mock-sourced leaks appear when mock misses tagged (F6) | — (needs F6) | **[ui-pending]** | ☐ |
 
 ## F6 — Mock log + drill list
 | AC | Requires | Core logic | Status | Verified (Matej) |
 |---|---|---|---|---|
-| AC6.1 | Record mock run + misses (desc + leak type + engine or "no engine") | — none yet | **[not started]** | ☐ |
-| AC6.2 | Tagging a miss writes a COMMITTED LeakEntry (source MOCK) | — none yet | **[not started]** | ☐ |
-| AC6.3 | "No engine" miss → create-engine-from-miss prompt | — none yet | **[not started]** | ☐ |
-| AC6.4 | Drill list; miss cleared ONLY by explicit "mark drilled" (never auto on pass) | — none yet | **[not started]** | ☐ |
+| AC6.1 | Record mock run + misses (desc + leak type + engine or "no engine") | ✓ `addMockRun` | **[ui-pending]** | ☐ |
+| AC6.2 | Tagging a miss writes a COMMITTED LeakEntry (source MOCK) | ✓ `addMockRun` (derives leaks) | **[ui-pending]** | ☐ |
+| AC6.3 | "No engine" miss → create-engine-from-miss prompt | ~ null-engine miss handled; prompt is UI | **[ui-pending]** | ☐ |
+| AC6.4 | Drill list; miss cleared ONLY by explicit "mark drilled" (never auto on pass) | ✓ `drillList` + `markMissDrilled` | **[ui-pending]** | ☐ |
 
-> ⚑ **F6 has no backing `v1-core` logic yet (no mock-run mutations/selectors) — core
-> logic must be built before UI.** That's why it's [not started], not [ui-pending].
+> F6 backbone landed 2026-07-08: `addMockRun` (+ derived COMMITTED/MOCK leaks),
+> `markMissDrilled` (explicit-only; a passing session never auto-clears — tested), and
+> `drillList`. All **[agent-tested]**; the ACs stay [ui-pending] until the mock-log +
+> drill-list screens exist.
 
 ## F7 — Dashboard
 | AC | Requires | Core logic | Status | Verified (Matej) |
 |---|---|---|---|---|
-| AC7.1 | Two-axis grid (comprehension × retrieval) per course + counts | — (needs grid) | **[ui-pending]** | ☐ |
+| AC7.1 | Two-axis grid (comprehension × retrieval) per course + counts | ✓ `maturityGrid` | **[ui-pending]** | ☐ |
 | AC7.2 | "Study next" ordering (undrilled-miss → UNTESTED → FRAGILE oldest → RELIABLE) | ✓ `studyNext` | **[ui-pending]** | ☐ |
 | AC7.3 | Per-course leak profile from COMMITTED leaks; "none" when only GUARDED | ✓ `computeLeakProfile` | **[ui-pending]** | ☐ |
 | AC7.4 | Exam-profile drill hint on course header | ✓ `deriveDrillEmphasisHint` | **[ui-pending]** | ☐ |
 
-> ⚑ Caveat: within AC7.2, the **undrilled-mock-miss ranking** depends on F6 data/logic
-> that does not exist yet → treat that portion as **[not started]**. The rest rests on
-> agent-tested logic and is unaffected: `studyNext`'s UNTESTED/FRAGILE/RELIABLE
-> ordering, the maturity grid's §1.2 values (AC7.1), and `computeLeakProfile` (AC7.3).
+> Note: AC7.2's full ordering — including the undrilled-mock-miss tier — now has
+> backing logic (`studyNext` + `drillList` + `addMockRun`; F6 backbone landed
+> 2026-07-08), so it is [ui-pending], not [not started]. AC7.1 grid = `maturityGrid`;
+> AC7.3 = `computeLeakProfile`; all agent-tested, awaiting the dashboard screen.
 
 ## F8 — Data durability
 | AC | Requires | Core logic | Status | Verified (Matej) |

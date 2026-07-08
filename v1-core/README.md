@@ -18,11 +18,11 @@ decisions**; those stay Cosmos's to make.
 |---|---|---|
 | `types.ts` | The full v1 + v1.1 data model (`Course`, `Engine`, `TestSession`, `LeakEntry`, `MockRun`, `MockDrill`, `CosmosData`, …) | COSMOS_V1_SPEC §1, SPEC_TIMED_MOCK §2 |
 | `maturity.ts` | `applyMaturityTransition` + `currentStreakStart` — the retrieval-reliability state machine (pure, no clock read) | §1.2 + locked decisions + SPEC_TIMED_MOCK §4 |
-| `selectors.ts` | `studyNext` ordering, `computeLeakProfile` (COMMITTED-only) | F7 / AC7.2 / AC7.3 / §1.6 |
+| `selectors.ts` | `studyNext`, `drillList`, `maturityGrid`, `computeLeakProfile`, `filterLeaks` / `leakCounts` | F5–F7 / AC5.1 / AC6.4 / AC7.1–7.3 / §1.6 |
 | `persistence.ts` | `buildEnvelope` / `parseEnvelope` — export + the schemaVersion gate (unknown version BLOCKS, never wipes) | F8 / AC8.1–8.3 |
-| `text.ts` | `splitPastedLines`, `extractPrecisionTargets` / `stripPrecisionBraces` / `suggestPrecisionTargets` — editor + precision-check helpers | F2 / AC2.2 / AC2.4 / F4 |
+| `text.ts` | `splitPastedLines`, `extractPrecisionTargets` / `stripPrecisionBraces` / `suggestPrecisionTargets`, `engineHasPrecisionTargets` / `precisionItems` — editor + precision-check helpers | F2 / F4 / AC2.2 / AC2.4 / AC4.1 |
 | `storage.ts` | `loadData` / `saveData` / `exportToJson` / `importFromJson` — the localStorage-backed versioned envelope (browser binding injected via `StorageLike`, so it's testable/neutral) | §0 / F8 / AC8.1–8.3 |
-| `mutations.ts` | pure `CosmosData` transitions: `deriveDrillEmphasisHint`, `cascadeDeleteCourse` (+counts), `recordSession` (the F3 maturity write path), upserts/`addLeak` | F1 / AC1.2 / AC1.3 / F3 / §1.2 |
+| `mutations.ts` | pure `CosmosData` transitions: `deriveDrillEmphasisHint`, `cascadeDeleteCourse` (+counts), `recordSession` (F3 write path), `addMockRun` (+MOCK leaks) / `markMissDrilled`, upserts / `addLeak`, `NEW_ENGINE_DEFAULTS` | F1 / F3 / F6 / AC1.2 / AC1.3 / AC2.5 / AC6.1–6.4 / §1.2 |
 | `migrate.ts` | `migrateLegacy` — v0 prototype store → v1 `CosmosData` (single-axis ladder → two-axis) | §5 step 6 |
 | `fixtures/seed.ts` | `SEED` — the four Tech Law engines in v1 shape (test data + content head-start); import from `./fixtures/seed` | — |
 | `index.ts` | Barrel export — import the core from here | — |
