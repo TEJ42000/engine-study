@@ -33,11 +33,10 @@ Close a loop by moving its resolution into `DECISIONS.md`._
   DUO WO enrollment figures unverified; EU/Brightspace comparable pricing unresearched;
   COURSE_01 is a reconstruction; pending grades (IEL resit, Legal History, Criminal Law).
 
-- **SPEC RECONCILIATION (opened 2026-07-08):** the migration ruling (retrieval capped
-  at FRAGILE) contradicts `COSMOS_V1_SPEC.md` §5 step 6 ("REFLEX→SOLID/RELIABLE").
-  `migrate.ts` + `DECISIONS.md` + this ledger follow the ruling; the spec was left
-  untouched (source of truth). Loop closes when §5 is updated to match, or the ruling
-  is explicitly recorded as a permitted deviation.
+- **SPEC RECONCILIATION — ✅ RESOLVED 2026-07-08:** `COSMOS_V1_SPEC.md` §5 step 6 now
+  states the FRAGILE-cap migration mapping, matching `migrate.ts` + `DECISIONS.md`.
+  Spec, code, and docs are consistent on the migration mapping. (Was: §5 said
+  "REFLEX→SOLID/RELIABLE" while the ruling capped retrieval at FRAGILE.)
 
 - **IMPORT GUARDRAIL:** `experimental/` is world-readable (public repo); `v1-core/` and
   the eventual UI must NEVER import from `experimental/`.

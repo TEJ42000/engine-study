@@ -75,3 +75,7 @@ by `experimental/src/pipeline/evaluator.py`. Newest last._
   (checks green). ⚑ **OPEN CONFLICT:** `COSMOS_V1_SPEC.md` §5 step 6 still reads
   "REFLEX→SOLID/RELIABLE" — the spec is source of truth and now contradicts this
   ruling; §5 needs updating. Not changed here (spec left untouched pending the call).
+- **Reconciled `COSMOS_V1_SPEC` §5 step 6 to the FRAGILE-cap migration ruling** (was
+  REFLEX→SOLID/RELIABLE). Spec now matches `migrate.ts` and prior decisions; closes the
+  SPEC RECONCILIATION open loop. (Supersedes the "OPEN CONFLICT / not changed here"
+  note in the MIGRATION RULING entry above.)

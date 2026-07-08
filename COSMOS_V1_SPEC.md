@@ -290,7 +290,7 @@ Weight study-next and drill selection toward the user's dominant COMMITTED leak 
 3. **Test runner (F3)** — the core loop; build and verify AC3.1–3.6 before anything else ships.
 4. Precision check (F4), leak log (F5).
 5. Mock log + drill list (F6), dashboard (F7).
-6. Migration helper: one-time import of the prototype's `engine-study-v1` localStorage data (map old maturity → axes: DRAFTED→SHAKY/UNTESTED, TESTED/STABLE→SOLID/FRAGILE, REFLEX→SOLID/RELIABLE; old leaks become COMMITTED/COLD_TEST). Low effort, preserves the Tech Law corpus.
+6. Migration helper: one-time import of the prototype's `engine-study-v1` localStorage data. **Maturity mapping (FRAGILE-cap ruling, 2026-07-08 — see DECISIONS.md):** comprehension carries v0 mastery (DRAFTED→SHAKY; TESTED/STABLE/REFLEX→SOLID); the retrieval axis is **capped at FRAGILE for every migrated engine — never RELIABLE** (DRAFTED→UNTESTED; TESTED/STABLE/REFLEX→FRAGILE), and RELIABLE must be re-earned under the real ≥48h spaced-cold-recall regime; `passStreak` initializes to 0 for all migrated engines. Rationale: RELIABLE is defined as proven under spaced cold recall, which v0 never applied — importing it would be unearned mastery (friction principle). Old leaks become COMMITTED/COLD_TEST. Low effort, preserves the Tech Law corpus.
 
 ## 6. Definition of done (v1)
 
