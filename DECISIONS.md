@@ -61,10 +61,6 @@ by `experimental/src/pipeline/evaluator.py`. Newest last._
   Reason: the old init doc contradicted COSMOS_V1_SPEC (v1 has no backend/AI/voice).
 - **Building v1 as far as possible in Claude Code ahead of the California/Cosmos
   window**, not solely in Cosmos. COSMOS_V1_SPEC.md stays source of truth across both lanes.
-- **Made the GitHub repo public.** Resolves the prior external-404 (repo was private,
-  not un-pushed). Accepted tradeoff: six-course extraction corpus + spec are
-  world-readable. Rule: no API keys/secrets ever committed; v2's user-supplied key
-  stays env/local, gitignored. (Also logged under 2026-07-06 above.)
 - **Core-first v1 build landed in `v1-core/`** (storage.ts, mutations.ts, migrate.ts):
   pure, injected StorageLike, unit checks green (agent-tested, not yet human-verified).
   Prototype left frozen.

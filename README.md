@@ -35,6 +35,8 @@ REFINEMENT.md       Six-course analysis consolidated into the requirements the s
 LEARNINGS.md        Prototype findings (the critical test-flow bug L1 + fixes) that drove the spec.
 EXTRACTION.md       Prompt v2 for turning course material into engines (feeds v2 AI generation).
 DECISIONS.md        Single chronological log of the locked decisions (the "why").
+OpenLoops.md        Unresolved threads / open questions (with build-lane answers where known).
+BUILD_HANDOFF.md    Ledger mirroring the spec: F1–F8 AC status ([agent-tested]/[ui-pending]/[not started]). NOT a spec.
 extractions/        Six-course extraction corpus (COURSE_01–06): validation + seed data + pitch evidence.
 src/                FROZEN reference prototype (see below). Do NOT extend; it predates the spec.
 experimental/       Quarantined v2-spike. NOT v1. Do not build. (voice / AI marking / Python backend)

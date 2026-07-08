@@ -38,3 +38,6 @@ Close a loop by moving its resolution into `DECISIONS.md`._
   `migrate.ts` + `DECISIONS.md` + this ledger follow the ruling; the spec was left
   untouched (source of truth). Loop closes when §5 is updated to match, or the ruling
   is explicitly recorded as a permitted deviation.
+
+- **IMPORT GUARDRAIL:** `experimental/` is world-readable (public repo); `v1-core/` and
+  the eventual UI must NEVER import from `experimental/`.

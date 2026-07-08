@@ -74,14 +74,13 @@ F8 (data layer + envelope/versioning + export/import) → F1/F2 → **F3** (veri
 ## F6 — Mock log + drill list
 | AC | Requires | Core logic | Status | Verified (Matej) |
 |---|---|---|---|---|
-| AC6.1 | Record mock run + misses (desc + leak type + engine or "no engine") | — none yet | **[ui-pending]** | ☐ |
-| AC6.2 | Tagging a miss writes a COMMITTED LeakEntry (source MOCK) | — none yet | **[ui-pending]** | ☐ |
-| AC6.3 | "No engine" miss → create-engine-from-miss prompt | — none yet | **[ui-pending]** | ☐ |
-| AC6.4 | Drill list; miss cleared ONLY by explicit "mark drilled" (never auto on pass) | — none yet | **[ui-pending]** | ☐ |
+| AC6.1 | Record mock run + misses (desc + leak type + engine or "no engine") | — none yet | **[not started]** | ☐ |
+| AC6.2 | Tagging a miss writes a COMMITTED LeakEntry (source MOCK) | — none yet | **[not started]** | ☐ |
+| AC6.3 | "No engine" miss → create-engine-from-miss prompt | — none yet | **[not started]** | ☐ |
+| AC6.4 | Drill list; miss cleared ONLY by explicit "mark drilled" (never auto on pass) | — none yet | **[not started]** | ☐ |
 
-> ⚑ Honest caveat: F6 has **no backing `v1-core` logic yet** (no mock-run mutations/selectors).
-> Marked [ui-pending] per the ledger spec, but it is closer to [not started] than the
-> other [ui-pending] rows.
+> ⚑ **F6 has no backing `v1-core` logic yet (no mock-run mutations/selectors) — core
+> logic must be built before UI.** That's why it's [not started], not [ui-pending].
 
 ## F7 — Dashboard
 | AC | Requires | Core logic | Status | Verified (Matej) |
@@ -90,6 +89,11 @@ F8 (data layer + envelope/versioning + export/import) → F1/F2 → **F3** (veri
 | AC7.2 | "Study next" ordering (undrilled-miss → UNTESTED → FRAGILE oldest → RELIABLE) | ✓ `studyNext` | **[ui-pending]** | ☐ |
 | AC7.3 | Per-course leak profile from COMMITTED leaks; "none" when only GUARDED | ✓ `computeLeakProfile` | **[ui-pending]** | ☐ |
 | AC7.4 | Exam-profile drill hint on course header | ✓ `deriveDrillEmphasisHint` | **[ui-pending]** | ☐ |
+
+> ⚑ Caveat: within AC7.2, the **undrilled-mock-miss ranking** depends on F6 data/logic
+> that does not exist yet → treat that portion as **[not started]**. The rest rests on
+> agent-tested logic and is unaffected: `studyNext`'s UNTESTED/FRAGILE/RELIABLE
+> ordering, the maturity grid's §1.2 values (AC7.1), and `computeLeakProfile` (AC7.3).
 
 ## F8 — Data durability
 | AC | Requires | Core logic | Status | Verified (Matej) |
