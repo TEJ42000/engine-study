@@ -18,7 +18,27 @@ import {
   hasPrecisionTargets,
 } from './text';
 import { SEED } from './fixtures/seed';
-import type { Engine, LeakEntry, Result, SessionMode } from './types';
+import {
+  loadData,
+  saveData,
+  exportToJson,
+  importFromJson,
+  type StorageLike,
+} from './storage';
+import {
+  deriveDrillEmphasisHint,
+  cascadeDeleteCourse,
+  recordSession,
+} from './mutations';
+import { migrateLegacy, type LegacyAppData } from './migrate';
+import type {
+  CosmosData,
+  Engine,
+  LeakEntry,
+  Result,
+  SessionMode,
+  TestSession,
+} from './types';
 
 let failures = 0;
 function assert(cond: boolean, msg: string): void {
@@ -64,6 +84,26 @@ const F = (recordedAt: string, mode: SessionMode = 'FULL_RECALL'): Ev => ({
   result: 'FAIL',
   sessionMode: mode,
   recordedAt,
+});
+const mkEngine = (
+  id: string,
+  retrievalReliability: Engine['retrievalReliability'],
+  lastTestedAt: string | null,
+): Engine => ({
+  id,
+  courseId: 'c1',
+  engineType: 'DOCTRINAL',
+  title: id,
+  gate: '',
+  steps: [],
+  trigger: '',
+  satellites: [],
+  stacking: false,
+  comprehension: 'SHAKY',
+  retrievalReliability,
+  passStreak: 0,
+  lastTestedAt,
+  createdAt: t0,
 });
 
 console.log('maturity:');
@@ -297,6 +337,109 @@ console.log('seed fixture:');
       hasPrecisionTargets([...e.steps, ...e.satellites].join(' ')),
     ),
     'seed exercises precision targets ({{ }} present)',
+  );
+}
+
+console.log('storage:');
+{
+  const mem = new Map<string, string>();
+  const store: StorageLike = {
+    getItem: (k) => (mem.has(k) ? (mem.get(k) as string) : null),
+    setItem: (k, v) => void mem.set(k, v),
+  };
+  const empty = loadData(store);
+  assert(empty.ok && empty.fresh, 'empty storage -> fresh empty data');
+
+  const data = emptyData();
+  data.courses.push({
+    id: 'c1',
+    name: 'X',
+    examProfile: { openBook: true, appliedVsMemorization: 'APPLIED', pathGraded: false, modes: [] },
+  });
+  saveData(store, data);
+  const loaded = loadData(store);
+  assert(
+    loaded.ok && !loaded.fresh && loaded.data.courses.length === 1,
+    'saveData -> loadData round-trips',
+  );
+
+  store.setItem('cosmos-v1', JSON.stringify({ schemaVersion: 99, data: {} }));
+  const blocked = loadData(store);
+  assert(
+    !blocked.ok && /schemaVersion 99/.test(blocked.reason),
+    'unknown stored schemaVersion -> ok:false WITH raw (never wiped, AC8.3)',
+  );
+  assert(importFromJson(exportToJson(data)).ok === true, 'export -> import round-trips');
+}
+
+console.log('mutations:');
+{
+  assert(
+    deriveDrillEmphasisHint({ openBook: true, appliedVsMemorization: 'APPLIED', pathGraded: true, modes: [] }) ===
+      'navigation/lookup + answer machinery + sequence order',
+    'deriveDrillEmphasisHint composes profile flags (AC1.2)',
+  );
+  assert(
+    deriveDrillEmphasisHint({ openBook: false, appliedVsMemorization: 'MEMORIZATION', pathGraded: false, modes: [] }) ===
+      'spaced recall',
+    'deriveDrillEmphasisHint: memorization -> spaced recall',
+  );
+
+  const d: CosmosData = {
+    ...emptyData(),
+    courses: [{ id: 'c1', name: 'C1', examProfile: { openBook: false, appliedVsMemorization: 'MIXED', pathGraded: false, modes: [] } }],
+    engines: [mkEngine('e1', 'FRAGILE', t0)],
+    testSessions: [{ id: 's0', engineId: 'e1', mode: 'FULL_RECALL', gateAttempt: 'g', attempt: 'a', result: 'PASS', comprehensionAfter: 'SOLID', startedAt: t0, recordedAt: t0 }],
+    leaks: [{ id: 'l1', engineId: 'e1', courseId: 'c1', type: 'PRECISION', status: 'COMMITTED', source: 'COLD_TEST', description: 'x', createdAt: t0 }],
+  };
+  const { data: afterDel, counts } = cascadeDeleteCourse(d, 'c1');
+  assert(
+    counts.engines === 1 && counts.testSessions === 1 && counts.leaks === 1 &&
+      afterDel.courses.length === 0 && afterDel.engines.length === 0 &&
+      afterDel.testSessions.length === 0 && afterDel.leaks.length === 0,
+    'cascadeDeleteCourse removes engines+sessions+leaks and reports counts (AC1.3)',
+  );
+
+  const eng = mkEngine('e2', 'UNTESTED', null);
+  const base: CosmosData = { ...emptyData(), engines: [eng] };
+  const sess: TestSession = { id: 's1', engineId: 'e2', mode: 'FULL_RECALL', gateAttempt: 'g', attempt: 'my recall', result: 'PASS', comprehensionAfter: 'SOLID', startedAt: t0, recordedAt: t0 };
+  const after = recordSession(base, sess);
+  const e2 = after.engines[0];
+  assert(
+    after.testSessions.length === 1 && e2.retrievalReliability === 'FRAGILE' &&
+      e2.passStreak === 1 && e2.lastTestedAt === t0 && e2.comprehension === 'SOLID',
+    'recordSession stores attempt + applies maturity + comprehension + lastTestedAt (F3/§1.2)',
+  );
+}
+
+console.log('migrate (v0 -> v1):');
+{
+  const legacy: LegacyAppData = {
+    courses: [{ id: 'c1', name: 'Tech Law' }],
+    engines: [
+      { id: 'e1', courseId: 'c1', title: 'T', gate: 'g', steps: ['s'], trigger: 't', satellites: [], maturity: 'REFLEX', lastTestedAt: t0 },
+      { id: 'e2', courseId: 'c1', title: 'U', gate: 'g', steps: [], trigger: 't', satellites: [], maturity: 'DRAFTED', lastTestedAt: null },
+    ],
+    leaks: [{ id: 'l1', engineId: 'e1', description: 'slip', type: 'PRECISION', createdAt: t0 }],
+  };
+  const v1 = migrateLegacy(legacy);
+  const e1 = v1.engines.find((e) => e.id === 'e1');
+  const e2 = v1.engines.find((e) => e.id === 'e2');
+  assert(
+    e1 !== undefined && e1.retrievalReliability === 'RELIABLE' && e1.comprehension === 'SOLID',
+    'REFLEX -> SOLID / RELIABLE (§5)',
+  );
+  assert(
+    e2 !== undefined && e2.retrievalReliability === 'UNTESTED' && e2.comprehension === 'SHAKY',
+    'DRAFTED -> SHAKY / UNTESTED (§5)',
+  );
+  assert(
+    v1.leaks[0].status === 'COMMITTED' && v1.leaks[0].source === 'COLD_TEST' && v1.leaks[0].courseId === 'c1',
+    'legacy leak -> COMMITTED / COLD_TEST with denormalized courseId (§5)',
+  );
+  assert(
+    v1.courses[0].examProfile !== undefined && Array.isArray(v1.mockDrills),
+    'migrated course gets a (placeholder) examProfile; v1 shape complete',
   );
 }
 

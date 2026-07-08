@@ -21,6 +21,9 @@ decisions**; those stay Cosmos's to make.
 | `selectors.ts` | `studyNext` ordering, `computeLeakProfile` (COMMITTED-only) | F7 / AC7.2 / AC7.3 / §1.6 |
 | `persistence.ts` | `buildEnvelope` / `parseEnvelope` — export + the schemaVersion gate (unknown version BLOCKS, never wipes) | F8 / AC8.1–8.3 |
 | `text.ts` | `splitPastedLines`, `extractPrecisionTargets` / `stripPrecisionBraces` / `suggestPrecisionTargets` — editor + precision-check helpers | F2 / AC2.2 / AC2.4 / F4 |
+| `storage.ts` | `loadData` / `saveData` / `exportToJson` / `importFromJson` — the localStorage-backed versioned envelope (browser binding injected via `StorageLike`, so it's testable/neutral) | §0 / F8 / AC8.1–8.3 |
+| `mutations.ts` | pure `CosmosData` transitions: `deriveDrillEmphasisHint`, `cascadeDeleteCourse` (+counts), `recordSession` (the F3 maturity write path), upserts/`addLeak` | F1 / AC1.2 / AC1.3 / F3 / §1.2 |
+| `migrate.ts` | `migrateLegacy` — v0 prototype store → v1 `CosmosData` (single-axis ladder → two-axis) | §5 step 6 |
 | `fixtures/seed.ts` | `SEED` — the four Tech Law engines in v1 shape (test data + content head-start); import from `./fixtures/seed` | — |
 | `index.ts` | Barrel export — import the core from here | — |
 | `__checks__.ts` | Executable verification of every rule above (incl. seed consistency) | — |
