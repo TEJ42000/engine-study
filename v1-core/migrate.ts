@@ -44,10 +44,17 @@ export interface LegacyAppData {
   leaks: LegacyLeak[];
 }
 
-// §5 mapping: DRAFTED→SHAKY/UNTESTED, TESTED/STABLE→SOLID/FRAGILE, REFLEX→SOLID/RELIABLE.
-// ⚑ passStreak is unspecified by §5 — set to 0 for every migrated engine (a fresh
-// v1 start; v0 passes weren't under the 48h regime, so they don't carry). The
-// retrievalReliability axis carries the maturity signal.
+// Maturity mapping — DECISIONS.md 2026-07-08 RULING (supersedes §5's REFLEX→RELIABLE):
+//   DRAFTED               → SHAKY / UNTESTED
+//   TESTED / STABLE / REFLEX → SOLID / FRAGILE   ← retrieval CAPPED at FRAGILE
+// RELIABLE is earned only under the real ≥48h spaced-cold-recall regime, which v0
+// never applied; importing it would be unearned mastery (friction principle).
+// Migrated engines re-earn RELIABLE under the real regime; comprehension carries
+// as SOLID for anything past DRAFTED.
+// ⚑ passStreak is unspecified — set to 0 for every migrated engine (fresh v1 start).
+// ⚑ SPEC CONFLICT (flagged, not silently changed): COSMOS_V1_SPEC §5 step 6 still
+//    reads "REFLEX→SOLID/RELIABLE". The spec is source of truth; §5 must be updated
+//    to match this ruling — see DECISIONS.md 2026-07-08.
 function mapMaturity(m: LegacyEngine['maturity']): {
   comprehension: Comprehension;
   retrievalReliability: RetrievalReliability;
@@ -57,9 +64,8 @@ function mapMaturity(m: LegacyEngine['maturity']): {
       return { comprehension: 'SHAKY', retrievalReliability: 'UNTESTED' };
     case 'TESTED':
     case 'STABLE':
-      return { comprehension: 'SOLID', retrievalReliability: 'FRAGILE' };
     case 'REFLEX':
-      return { comprehension: 'SOLID', retrievalReliability: 'RELIABLE' };
+      return { comprehension: 'SOLID', retrievalReliability: 'FRAGILE' };
   }
 }
 

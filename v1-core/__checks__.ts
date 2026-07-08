@@ -426,8 +426,8 @@ console.log('migrate (v0 -> v1):');
   const e1 = v1.engines.find((e) => e.id === 'e1');
   const e2 = v1.engines.find((e) => e.id === 'e2');
   assert(
-    e1 !== undefined && e1.retrievalReliability === 'RELIABLE' && e1.comprehension === 'SOLID',
-    'REFLEX -> SOLID / RELIABLE (§5)',
+    e1 !== undefined && e1.retrievalReliability === 'FRAGILE' && e1.comprehension === 'SOLID',
+    'REFLEX -> SOLID / FRAGILE (retrieval CAPPED; DECISIONS 2026-07-08 ruling)',
   );
   assert(
     e2 !== undefined && e2.retrievalReliability === 'UNTESTED' && e2.comprehension === 'SHAKY',
