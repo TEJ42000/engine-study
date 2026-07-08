@@ -11,6 +11,7 @@ import type {
   Engine,
   ExamProfile,
   LeakEntry,
+  MockRun,
   TestSession,
 } from './types';
 import {
@@ -144,5 +145,66 @@ export function upsertEngine(data: CosmosData, engine: Engine): CosmosData {
     engines: exists
       ? data.engines.map((e) => (e.id === engine.id ? engine : e))
       : [...data.engines, engine],
+  };
+}
+
+// F2 AC2.5 — the mandatory defaults for a newly created engine. The caller adds
+// id / courseId / title / gate / steps / trigger / satellites / createdAt; these
+// fields are fixed so the invariant (DOCTRINAL / SHAKY / UNTESTED / streak 0 /
+// stacking false) can't drift. Neither maturity axis starts advanced.
+export const NEW_ENGINE_DEFAULTS = {
+  engineType: 'DOCTRINAL',
+  stacking: false,
+  comprehension: 'SHAKY',
+  retrievalReliability: 'UNTESTED',
+  passStreak: 0,
+  lastTestedAt: null,
+} as const;
+
+// F6 AC6.1 / AC6.2 — record a mock run; for every miss tagged with an engine,
+// write a COMMITTED LeakEntry (source MOCK). Leak id + createdAt are DERIVED
+// (miss id + the run's takenAt), so this stays pure/deterministic — no id or
+// clock generation inside the core. Misses with engineId: null produce no leak
+// (nothing to attribute) and surface in the UI as "create engine from this miss".
+export function addMockRun(data: CosmosData, run: MockRun): CosmosData {
+  const mockLeaks: LeakEntry[] = run.misses
+    .filter((m) => m.engineId !== null)
+    .map((m) => ({
+      id: `leak:mock:${m.id}`,
+      engineId: m.engineId as string,
+      courseId: run.courseId,
+      type: m.leakType,
+      status: 'COMMITTED',
+      source: 'MOCK',
+      description: m.description,
+      createdAt: run.takenAt,
+    }));
+  return {
+    ...data,
+    mockRuns: [...data.mockRuns, run],
+    leaks: [...data.leaks, ...mockLeaks],
+  };
+}
+
+// F6 AC6.4 — mark one mock miss drilled. ONLY via explicit user action; a
+// cold-recall PASS must NEVER auto-clear a miss (that's a fenced v2 rule — the
+// evidence type must match the failure type).
+export function markMissDrilled(
+  data: CosmosData,
+  mockRunId: string,
+  missId: string,
+): CosmosData {
+  return {
+    ...data,
+    mockRuns: data.mockRuns.map((run) =>
+      run.id !== mockRunId
+        ? run
+        : {
+            ...run,
+            misses: run.misses.map((m) =>
+              m.id === missId ? { ...m, drilled: true } : m,
+            ),
+          },
+    ),
   };
 }

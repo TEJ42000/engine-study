@@ -50,3 +50,37 @@ export function suggestPrecisionTargets(text: string): string[] {
   }
   return [...found];
 }
+
+// F4 AC4.1 — precision-check gate: is this engine eligible (≥1 {{target}} anywhere)?
+export function engineHasPrecisionTargets(
+  steps: ReadonlyArray<string>,
+  satellites: ReadonlyArray<string>,
+): boolean {
+  return [...steps, ...satellites].some((s) => hasPrecisionTargets(s));
+}
+
+// F4 AC4.1 — the render/grade data for precision-check mode: every step/satellite
+// that contains ≥1 target, with the targets (the answers to blank out). Everything
+// else in the item stays visible; only the targets become blanks.
+export interface PrecisionItem {
+  source: 'step' | 'satellite';
+  index: number;
+  text: string; // raw text, braces intact (blank the targets, show the rest)
+  targets: string[];
+}
+
+export function precisionItems(
+  steps: ReadonlyArray<string>,
+  satellites: ReadonlyArray<string>,
+): PrecisionItem[] {
+  const out: PrecisionItem[] = [];
+  steps.forEach((text, index) => {
+    const targets = extractPrecisionTargets(text);
+    if (targets.length) out.push({ source: 'step', index, text, targets });
+  });
+  satellites.forEach((text, index) => {
+    const targets = extractPrecisionTargets(text);
+    if (targets.length) out.push({ source: 'satellite', index, text, targets });
+  });
+  return out;
+}

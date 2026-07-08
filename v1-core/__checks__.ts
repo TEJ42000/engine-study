@@ -8,7 +8,14 @@ import {
   currentStreakStart,
   type MaturityState,
 } from './maturity';
-import { studyNext, computeLeakProfile } from './selectors';
+import {
+  studyNext,
+  computeLeakProfile,
+  drillList,
+  maturityGrid,
+  filterLeaks,
+  leakCounts,
+} from './selectors';
 import { parseEnvelope, buildEnvelope, emptyData } from './persistence';
 import {
   splitPastedLines,
@@ -16,6 +23,8 @@ import {
   stripPrecisionBraces,
   suggestPrecisionTargets,
   hasPrecisionTargets,
+  precisionItems,
+  engineHasPrecisionTargets,
 } from './text';
 import { SEED } from './fixtures/seed';
 import {
@@ -29,12 +38,16 @@ import {
   deriveDrillEmphasisHint,
   cascadeDeleteCourse,
   recordSession,
+  addMockRun,
+  markMissDrilled,
+  NEW_ENGINE_DEFAULTS,
 } from './mutations';
 import { migrateLegacy, type LegacyAppData } from './migrate';
 import type {
   CosmosData,
   Engine,
   LeakEntry,
+  MockRun,
   Result,
   SessionMode,
   TestSession,
@@ -440,6 +453,121 @@ console.log('migrate (v0 -> v1):');
   assert(
     v1.courses[0].examProfile !== undefined && Array.isArray(v1.mockDrills),
     'migrated course gets a (placeholder) examProfile; v1 shape complete',
+  );
+}
+
+console.log('F6 mock log + drill list:');
+{
+  const run: MockRun = {
+    id: 'm1', courseId: 'c1', label: 'ITL 2021', takenAt: t24, notes: '',
+    misses: [
+      { id: 'x1', description: 'skipped gate', engineId: 'e1', leakType: 'GATE_SKIP', drilled: false },
+      { id: 'x2', description: 'no engine yet', engineId: null, leakType: 'WRONG_TOOL', drilled: false },
+    ],
+  };
+  const run2: MockRun = {
+    id: 'm2', courseId: 'c1', label: 'ITL 2022', takenAt: t72, notes: '',
+    misses: [{ id: 'x3', description: 'precision slip', engineId: 'e2', leakType: 'PRECISION', drilled: false }],
+  };
+  const base: CosmosData = {
+    ...emptyData(),
+    engines: [mkEngine('e1', 'FRAGILE', t0), mkEngine('e2', 'UNTESTED', null)],
+  };
+  let d = addMockRun(base, run);
+  d = addMockRun(d, run2);
+  assert(
+    d.mockRuns.length === 2 &&
+      d.leaks.length === 2 &&
+      d.leaks.every((l) => l.status === 'COMMITTED' && l.source === 'MOCK') &&
+      d.leaks.some((l) => l.engineId === 'e1' && l.courseId === 'c1'),
+    'addMockRun records run + COMMITTED/MOCK leaks for engine-tagged misses (AC6.1/6.2)',
+  );
+  assert(
+    !d.leaks.some((l) => l.description === 'no engine yet'),
+    'a "no engine" miss produces no leak (AC6.3 territory)',
+  );
+  const dl = drillList(d.engines, d.mockRuns);
+  assert(
+    dl.length === 2 && dl[0].engine.id === 'e2',
+    'drillList: engines w/ undrilled misses, most-recent mock first (AC6.4)',
+  );
+  const drilled = markMissDrilled(d, 'm2', 'x3');
+  assert(
+    drilled.mockRuns.find((r) => r.id === 'm2')!.misses[0].drilled === true &&
+      drillList(drilled.engines, drilled.mockRuns).length === 1,
+    'markMissDrilled clears one miss (explicit) -> drops off drill list (AC6.4)',
+  );
+  const afterPass = recordSession(d, {
+    id: 's', engineId: 'e2', mode: 'FULL_RECALL', gateAttempt: 'g', attempt: 'a',
+    result: 'PASS', comprehensionAfter: 'SOLID', startedAt: t0, recordedAt: t0,
+  });
+  assert(
+    afterPass.mockRuns.find((r) => r.id === 'm2')!.misses[0].drilled === false,
+    'a cold-recall PASS does NOT auto-clear a mock miss (§1.5 / AC6.4)',
+  );
+}
+
+console.log('F7 maturity grid:');
+{
+  const engines: Engine[] = [
+    mkEngine('a', 'UNTESTED', null),
+    mkEngine('b', 'FRAGILE', t0),
+    { ...mkEngine('c', 'RELIABLE', t0), comprehension: 'SOLID' },
+    { ...mkEngine('d', 'FRAGILE', t0), comprehension: 'SOLID' },
+  ];
+  const g = maturityGrid(engines);
+  assert(
+    g.total === 4 && g.SHAKY.UNTESTED === 1 && g.SHAKY.FRAGILE === 1 &&
+      g.SOLID.RELIABLE === 1 && g.SOLID.FRAGILE === 1,
+    'maturityGrid tallies comprehension × retrieval cells (AC7.1)',
+  );
+}
+
+console.log('F5 leak log view:');
+{
+  const leaks: LeakEntry[] = [
+    { id: '1', engineId: 'e1', courseId: 'c1', type: 'GATE_SKIP', status: 'COMMITTED', source: 'COLD_TEST', description: '', createdAt: t0 },
+    { id: '2', engineId: 'e1', courseId: 'c1', type: 'GATE_SKIP', status: 'GUARDED', source: 'MANUAL', description: '', createdAt: t0 },
+    { id: '3', engineId: 'e2', courseId: 'c2', type: 'PRECISION', status: 'COMMITTED', source: 'MOCK', description: '', createdAt: t0 },
+  ];
+  assert(
+    filterLeaks(leaks, { courseId: 'c1' }).length === 2 &&
+      filterLeaks(leaks, { status: 'GUARDED' }).length === 1 &&
+      filterLeaks(leaks, { source: 'MOCK' }).length === 1,
+    'filterLeaks applies course/status/source filters (AC5.1)',
+  );
+  const lc = leakCounts(leaks);
+  assert(
+    lc.total === 3 && lc.committed.GATE_SKIP === 1 && lc.guarded.GATE_SKIP === 1 && lc.committed.PRECISION === 1,
+    'leakCounts split COMMITTED vs GUARDED by type (AC5.1)',
+  );
+}
+
+console.log('F4 precision-check data:');
+{
+  const steps = ['Fine ceiling is {{20M EUR}}', 'no target here'];
+  const sats = ['{{C-101/01}} Lindqvist'];
+  assert(engineHasPrecisionTargets(steps, sats) === true, 'engineHasPrecisionTargets gates on ≥1 target (AC4.1)');
+  assert(engineHasPrecisionTargets(['plain'], ['plain']) === false, 'no targets -> precision check unavailable (AC4.1)');
+  const items = precisionItems(steps, sats);
+  assert(
+    items.length === 2 &&
+      items[0].source === 'step' && items[0].targets[0] === '20M EUR' &&
+      items[1].source === 'satellite' && items[1].targets[0] === 'C-101/01',
+    'precisionItems returns only items with targets, tagged step/satellite (AC4.1)',
+  );
+}
+
+console.log('F2 engine defaults:');
+{
+  assert(
+    NEW_ENGINE_DEFAULTS.comprehension === 'SHAKY' &&
+      NEW_ENGINE_DEFAULTS.retrievalReliability === 'UNTESTED' &&
+      NEW_ENGINE_DEFAULTS.passStreak === 0 &&
+      NEW_ENGINE_DEFAULTS.stacking === false &&
+      NEW_ENGINE_DEFAULTS.engineType === 'DOCTRINAL' &&
+      NEW_ENGINE_DEFAULTS.lastTestedAt === null,
+    'NEW_ENGINE_DEFAULTS: SHAKY/UNTESTED/streak0/stacking-false/DOCTRINAL (AC2.5)',
   );
 }
 
