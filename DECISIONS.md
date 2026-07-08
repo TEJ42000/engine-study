@@ -53,3 +53,29 @@ by `experimental/src/pipeline/evaluator.py`. Newest last._
   alongside: **no API keys or secrets are ever committed** — v2's user-supplied API
   key stays env/local and `.gitignore`'d. (Verified when logging this: no key/token
   patterns in any tracked file.)
+
+## 2026-07-08 — v1 build lane, public repo, migration ruling
+
+- **Rewrote `COSMOS_WORKSPACE_INIT` to v1-only scope; quarantined the dual-agent /
+  Veo / Gemini / voice-wakeword / 3D-typography architecture** to v2/v3 design stubs.
+  Reason: the old init doc contradicted COSMOS_V1_SPEC (v1 has no backend/AI/voice).
+- **Building v1 as far as possible in Claude Code ahead of the California/Cosmos
+  window**, not solely in Cosmos. COSMOS_V1_SPEC.md stays source of truth across both lanes.
+- **Made the GitHub repo public.** Resolves the prior external-404 (repo was private,
+  not un-pushed). Accepted tradeoff: six-course extraction corpus + spec are
+  world-readable. Rule: no API keys/secrets ever committed; v2's user-supplied key
+  stays env/local, gitignored. (Also logged under 2026-07-06 above.)
+- **Core-first v1 build landed in `v1-core/`** (storage.ts, mutations.ts, migrate.ts):
+  pure, injected StorageLike, unit checks green (agent-tested, not yet human-verified).
+  Prototype left frozen.
+- **Confirmed: PRECISION_CHECK does NOT update `lastTestedAt`** — only cold recall
+  (FULL_RECALL/TIMED) does, since study-next keys on cold-recall recency.
+- **Confirmed: migrated engines start `passStreak=0`** (no v0 pass met the 48h regime).
+- **MIGRATION RULING:** migrated engines cap at FRAGILE on the retrieval axis and
+  re-earn RELIABLE under the real 48h regime; comprehension carries as SOLID. Reason:
+  RELIABLE is defined as proven under spaced cold recall, which v0 never applied —
+  importing it would be unearned mastery (friction principle). Revises the earlier
+  REFLEX→SOLID/RELIABLE mapping. **DONE:** `migrate.ts` now caps retrieval at FRAGILE
+  (checks green). ⚑ **OPEN CONFLICT:** `COSMOS_V1_SPEC.md` §5 step 6 still reads
+  "REFLEX→SOLID/RELIABLE" — the spec is source of truth and now contradicts this
+  ruling; §5 needs updating. Not changed here (spec left untouched pending the call).
