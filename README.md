@@ -28,6 +28,7 @@ a fenced v2 roadmap. Build v1 to that spec.
 
 ```
 COSMOS_V1_SPEC.md   ← BUILD THIS. Data model, F1–F8 acceptance criteria, fenced v2 roadmap.
+COSMOS_WORKSPACE_INIT.md  Read-first, binding scope fence for the v1 build (F1–F8 order, no AI/voice/backend).
 SPEC_TIMED_MOCK.md  Companion feature spec: timed 2-question mock drill (CONFIRMED v1.1 = v1 core + this; build v1 first).
 v1-core/            Verified, UI-agnostic TS core (data model + pure logic) — the foundation Cosmos builds the React app on. Isolated from the prototype.
 REFINEMENT.md       Six-course analysis consolidated into the requirements the spec was generated from.

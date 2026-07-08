@@ -22,7 +22,6 @@ in v1.
 | Path | What it is | v1 status |
 |---|---|---|
 | `AISystemPrompts.md` | Zero-flattery AI examiner mandate | v2 (no AI in v1) |
-| `CosmosWorkplace.md` | Cosmos workspace / directory-constraints note | reference |
 | `DATA_INGESTION_SCHEMA.md` | Telemetry + export/import schema (partly v2/institutional) | mixed |
 | `config/settings.py` | Python constants (models, maturity thresholds) | v2 (no backend in v1) |
 | `src/core/taxonomy.py` | Python enums mirroring the v1 TS taxonomy | reference |
