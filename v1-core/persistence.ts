@@ -70,6 +70,19 @@ export function parseEnvelope(json: string): ImportResult {
     typeof env.data === 'object' && env.data !== null
       ? (env.data as Partial<CosmosData>)
       : {};
+
+  // [P7-009] Runtime validation: verify core data structures are arrays.
+  // Spreading malformed data (e.g. `courses: "string"`) would corrupt the store.
+  const requiredArrays = ['courses', 'engines', 'testSessions', 'leaks', 'mockRuns'];
+  for (const key of requiredArrays) {
+    if (key in incoming && !Array.isArray(incoming[key as keyof CosmosData])) {
+      return {
+        ok: false,
+        reason: `Invalid data structure: "${key}" must be an array.`,
+      };
+    }
+  }
+
   const data: CosmosData = { ...emptyData(), ...incoming };
   if (!Array.isArray(data.mockDrills)) data.mockDrills = [];
 

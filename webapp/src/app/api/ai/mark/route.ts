@@ -57,6 +57,7 @@ RESPONSE — output ONLY this JSON, no markdown fences, no prose:
   "missing": ["<what was missing or wrong, max 4 bullets>"],
   "structureNote": "<one sentence: did they gate first? execute in order? stop cleanly?>",
   "keyToAdd": "<one sentence: the single most valuable thing to add next time>"
+}
 }`;
 }
 
@@ -103,9 +104,20 @@ export async function POST(req: Request) {
   let feedback: MarkingFeedback;
   try {
     const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
-    feedback = JSON.parse(cleaned);
-  } catch {
+    const parsed = JSON.parse(cleaned);
+    // Validate structure
+    if (typeof parsed.score !== 'number' ||
+        !Array.isArray(parsed.correct) ||
+        !Array.isArray(parsed.missing) ||
+        typeof parsed.structureNote !== 'string' ||
+        typeof parsed.keyToAdd !== 'string') {
+      throw new Error('Invalid feedback structure');
+    }
+    feedback = parsed as MarkingFeedback;
+  } catch (err) {
     // Fallback: return raw text so the UI can still display it.
+    const msg = err instanceof Error ? err.message : 'Parse failed';
+    console.error('[AI mark] JSON parse error:', msg, raw.slice(0, 200));
     return Response.json({ score: null, raw }, { status: 200 });
   }
 

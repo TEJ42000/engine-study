@@ -109,7 +109,13 @@ export default function DataPage() {
           type="file"
           accept=".json"
           onChange={handleFileChange}
-          className={`block text-sm text-zinc-600 file:mr-3 file:rounded file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200 cursor-pointer ${importStatus.phase === "error" ? "ring-2 ring-red-500 rounded-lg" : ""}`}
+          className={`block text-sm file:mr-3 file:rounded file:border-0 file:px-3 file:py-1.5 file:text-sm file:font-medium cursor-pointer transition-colors ${
+            importStatus.phase === "error"
+              ? "text-red-700 file:bg-red-100 file:text-red-800 hover:file:bg-red-200 ring-2 ring-red-500 rounded-lg"
+              : importStatus.phase === "done"
+              ? "text-green-700 file:bg-green-100 file:text-green-800 hover:file:bg-green-200"
+              : "text-zinc-600 file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200"
+          }`}
         />
 
         {importStatus.phase === "error" && (

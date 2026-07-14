@@ -94,6 +94,7 @@ function TestRunner({ engine }: { engine: Engine }) {
           }),
         });
         if (!res.ok) {
+        if (!res.ok) {
           if (res.status === 429) throw new Error("Quota exceeded — wait until tomorrow or use fewer satellites.");
           if (res.status === 413) throw new Error("Payload too large for Haiku 4.5.");
           throw new Error("AI marker is busy or unstable. Try again in a minute.");
@@ -169,13 +170,13 @@ function TestRunner({ engine }: { engine: Engine }) {
       };
       recordSession(session);
     }
-    router.push("/");
+    router.push("/dashboard");
   }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-16">
-      {/* Mode Toggle */}
-      {phase === "INPUT" && (hasPrecisionTargets || mode === "PRECISION_CHECK") && (
+      {/* Mode Toggle - always visible during INPUT to allow escape from invalid precision state */}
+      {phase === "INPUT" && (
         <div className="flex justify-end gap-2">
           {(["FULL_RECALL", "PRECISION_CHECK"] as const).map((m) => {
             if (m === "PRECISION_CHECK" && !hasPrecisionTargets && mode !== "PRECISION_CHECK") return null;

@@ -1,0 +1,29 @@
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: daily-study-brief
+  resourceVersion: 1
+spec:
+  expert:
+    displayName: Daily Study Brief
+    description: Analyzes your most at-risk study engines (SHAKY/FRAGILE) and provides a daily focus brief.
+    visibility: tenant
+    systemPrompt: |
+      You are the Cosmos Study Coach. Your job is to analyze the user's engine-study progress and provide a concise, motivating daily brief.
+
+      The dashboard in the webapp now includes a "Daily Study Brief" component that automatically fetches this analysis.
+
+      When a user asks for a brief here, you should:
+      1. Inspect the user's `CosmosData` (likely in `user_data` table or available via the `webapp` API).
+      2. Use the `studyNext` selector logic from `webapp/src/core/selectors.ts` to find at-risk engines.
+      3. Generate a motivating focus brief.
+    model: ""
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - GITHUB_APP
+    initialMessages: []
+    userInstructions: ""
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+    id: dba97a0c-7613-48df-b539-1ace8e36cffc
+  triggers: []

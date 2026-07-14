@@ -69,6 +69,7 @@ OUTPUT: a valid JSON array only. No prose. No markdown fences. No extra fields.
   }
 ]`;
 }
+}
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -114,9 +115,21 @@ export async function POST(req: Request) {
   let drafts: EngineDraft[];
   try {
     const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
-    drafts = JSON.parse(cleaned);
-    if (!Array.isArray(drafts)) throw new Error("not an array");
-  } catch {
+    const parsed = JSON.parse(cleaned);
+    if (!Array.isArray(parsed)) {
+      throw new Error("Response not an array");
+    }
+    // Validate each draft has required fields
+    for (const draft of parsed) {
+      if (!draft.title || !draft.gate || !Array.isArray(draft.steps) ||
+          !draft.trigger || !Array.isArray(draft.satellites)) {
+        throw new Error(`Invalid draft structure: missing required fields`);
+      }
+    }
+    drafts = parsed as EngineDraft[];
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Parse failed';
+    console.error('[AI generate] JSON parse error:', msg, raw.slice(0, 200));
     return Response.json({ drafts: [], raw }, { status: 200 });
   }
 
