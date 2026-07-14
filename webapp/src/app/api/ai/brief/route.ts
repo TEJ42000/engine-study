@@ -41,7 +41,7 @@ export async function GET() {
   await incrementAiUsage(session.user.id, "mark");
 
   const studyList = atRisk
-    .map(e => `- "${e.title.replace(/"/g, "'")}" (${e.comprehension}/${e.retrievalReliability})`)
+    .map(e => `- "${e.title.replace(/[\r\n\t\v\f\u0085\u2028\u2029]+/g, " ").replace(/"/g, "'")}" (${e.comprehension}/${e.retrievalReliability})`)
     .join("\n");
 
   const system = `You are a strict law-exam coach. Zero flattery. Zero filler.
