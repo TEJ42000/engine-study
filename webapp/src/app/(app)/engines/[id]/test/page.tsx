@@ -75,7 +75,12 @@ function TestRunner({ engine }: { engine: Engine }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ engine, gateAttempt, attempt }),
         });
-        if (!res.ok) throw new Error("AI marking failed");
+        if (!res.ok) {
+          if (res.status === 429) {
+            throw new Error("AI marking quota exhausted. Try again later or review manually.");
+          }
+          throw new Error(`AI marking failed (${res.status}). Review manually.`);
+        }
         const data = await res.json();
         setAiFeedback(data.feedback);
       } catch (err) {
@@ -126,7 +131,7 @@ function TestRunner({ engine }: { engine: Engine }) {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-16">
-      {/* Mode Toggle */}
+      {/* Mode Toggle - always visible during INPUT to allow escape from invalid precision state */}
       {phase === "INPUT" && (
         <div className="flex justify-end gap-2">
           {(["FULL_RECALL", "PRECISION_CHECK"] as const).map((m) => (
