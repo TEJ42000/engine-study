@@ -31,24 +31,35 @@ interface EngineDraft {
 
 function buildSystem(examProfile: ExamProfile): string {
   const hints: string[] = [];
-  if (examProfile.openBook) hints.push("open-book exam — emphasise navigation/lookup steps");
-  if (examProfile.pathGraded) hints.push("path-graded — sequence order is marks");
-  if (examProfile.appliedVsMemorization === "APPLIED") hints.push("applied exam — decision-execution order matters most");
+  if (examProfile.openBook) hints.push("open-book: emphasize lookup/navigation steps");
+  if (examProfile.pathGraded) hints.push("path-graded: step sequence = marks");
+  if (examProfile.appliedVsMemorization === "APPLIED") hints.push("applied: execution order > taxonomy order");
 
-  return `You are an expert legal educator. Convert the course material into engines using the extraction rules below.
+  return `Extract exam engines from course material. Follow the rules exactly.
 
-EXAM PROFILE HINTS: ${hints.join("; ") || "balanced recall"}
+EXAM PROFILE: ${hints.join("; ") || "balanced recall"}
 
-EXTRACTION RULES (from EXTRACTION.md):
-- Title: name the SITUATION or TASK as an exam question ("Does the GDPR apply?"). Never put article numbers in the title.
-- Gate: the go/no-go question that stops you choosing this engine wrongly.
-- Steps: 5–9, in the order you would EXECUTE them in an exam answer (not taxonomy order). Each step = one action or check. Lists >4 items become satellites or a separate engine.
-- Trigger: the fact-pattern cue that says "run this engine now".
-- Satellites: exact verbatim qualifiers, case holdings (name + pivot), numbers, deadlines.
-- Mark precision targets inline: {{exact figure or term}}.
-- Propose engineType: DOCTRINAL or ANSWER_STRUCTURE.
+EXTRACTION RULES:
+1. TITLE: Name the situation/task as an exam question ("Does the GDPR apply?", "Is consent valid?"). NEVER include article numbers, legal sources, or answer content — title stays visible during recall.
 
-OUTPUT: valid JSON array of engine objects. No prose outside the array.
+2. GATE: The wrong-tool test. A go/no-go question that stops you before wasting time ("Is data leaving the EU? If not, transfer regime doesn't apply"). Not a summary of step 1.
+
+3. STEPS (5–9, ordered by EXECUTION not taxonomy):
+   - Course materials present taxonomies (definitions, categories). You must impose exam decision order: identify → classify → check exceptions → edge cases → conclude.
+   - Each step = one action or one check.
+   - Lists >4 items → pull into satellites or split into separate engine.
+   - Final step must be explicit conclusion/output.
+   - Cases referenced only when the case IS the decision point.
+
+4. TRIGGER: Fact-pattern cue that says "run this NOW" + relative sequencing hint ("run BEFORE lawfulness discussion").
+
+5. SATELLITES (2–5): Exact verbatim qualifiers, case holdings (name + pivot point), numbers, deadlines, Latin terms. Phrase as close to source as possible ("PURELY PERSONAL and household" — the qualifier IS the answer).
+
+6. PRECISION TARGETS: Mark exact terms inline with {{curly braces}} — numbers, Latin, specific legal terms that flip outcomes.
+
+7. ENGINE TYPE: Propose DOCTRINAL (legal rules/tests) or ANSWER_STRUCTURE (exam technique/framing).
+
+OUTPUT: JSON array only. No prose before or after.
 [{"title":"...","engineType":"DOCTRINAL","gate":"...","steps":["..."],"trigger":"...","satellites":["..."],"stacking":false}, ...]`;
 }
 
@@ -79,9 +90,21 @@ export async function POST(req: Request) {
 
   let drafts: EngineDraft[];
   try {
-    drafts = JSON.parse(raw);
-    if (!Array.isArray(drafts)) throw new Error("not an array");
-  } catch {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      throw new Error("Response not an array");
+    }
+    // Validate each draft has required fields
+    for (const draft of parsed) {
+      if (!draft.title || !draft.gate || !Array.isArray(draft.steps) ||
+          !draft.trigger || !Array.isArray(draft.satellites)) {
+        throw new Error(`Invalid draft structure: missing required fields`);
+      }
+    }
+    drafts = parsed as EngineDraft[];
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Parse failed';
+    console.error('[AI generate] JSON parse error:', msg, raw.slice(0, 200));
     return Response.json({ drafts: [], raw }, { status: 200 });
   }
 

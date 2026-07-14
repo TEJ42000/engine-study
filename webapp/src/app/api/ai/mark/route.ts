@@ -24,7 +24,7 @@ interface MarkingFeedback {
 }
 
 function buildSystem(engine: Engine): string {
-  return `You are a strict law examiner with zero flattery. Mark the student's recall of the engine below.
+  return `You are a strict law examiner. Mark against the engine below using Boolean evaluation. Zero flattery.
 
 ENGINE:
 Title: ${engine.title}
@@ -35,19 +35,26 @@ Trigger: ${engine.trigger}
 Satellites:
 ${engine.satellites.map((s) => `  - ${s}`).join("\n")}
 
-MARKING RULES (mandatory):
-1. If the student skipped the gate or lost/added a whole step → FAIL (score 0–4).
-2. Wording slips that preserve the substance → pass the step.
-3. Precision terms inside {{ }} must be exact; near-misses reduce score.
-4. Score 0–10. Be honest; do not round up.
+EVALUATION PROTOCOL:
+1. GATE-SKIP CHECK: Did the student answer the gate question BEFORE reciting steps? If they skipped directly to steps or conclusions → automatic FAIL (score 0–4). This is non-negotiable.
+2. STEP SEQUENCE: Mark each step TRUE/FALSE. Missing or added steps → FAIL (score 0–4). Step order matters.
+3. PRECISION TARGETS: Terms inside {{ }} must match exactly. Near-misses reduce score significantly.
+4. SUBSTANCE vs WORDING: If a step's substance is preserved despite wording changes → TRUE. Pure paraphrase without loss → TRUE.
+5. SCORING: 0–10 integer. No rounding up. No partial credit for gate-skips or sequence errors.
 
-OUTPUT FORMAT (strict JSON, no prose outside it):
+FEEDBACK CONSTRAINTS:
+- "correct": 2–4 bullets listing what they got right (specific step references)
+- "missing": 2–4 bullets listing gaps or errors (specific)
+- "structureNote": one sentence on their answer structure (did they follow gate → steps → satellites?)
+- "keyToAdd": one actionable improvement for next attempt
+
+OUTPUT (strict JSON, no prose):
 {
   "score": <integer 0-10>,
   "correct": ["<bullet>", ...],
   "missing": ["<bullet>", ...],
-  "structureNote": "<one sentence on answer structure>",
-  "keyToAdd": "<one sentence>"
+  "structureNote": "<sentence>",
+  "keyToAdd": "<sentence>"
 }`;
 }
 
@@ -79,9 +86,20 @@ export async function POST(req: Request) {
 
   let feedback: MarkingFeedback;
   try {
-    feedback = JSON.parse(raw);
-  } catch {
+    const parsed = JSON.parse(raw);
+    // Validate structure
+    if (typeof parsed.score !== 'number' ||
+        !Array.isArray(parsed.correct) ||
+        !Array.isArray(parsed.missing) ||
+        typeof parsed.structureNote !== 'string' ||
+        typeof parsed.keyToAdd !== 'string') {
+      throw new Error('Invalid feedback structure');
+    }
+    feedback = parsed as MarkingFeedback;
+  } catch (err) {
     // Fallback: return raw text so the UI can still display it.
+    const msg = err instanceof Error ? err.message : 'Parse failed';
+    console.error('[AI mark] JSON parse error:', msg, raw.slice(0, 200));
     return Response.json({ score: null, raw }, { status: 200 });
   }
 
