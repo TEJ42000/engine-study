@@ -5,7 +5,7 @@ import { SignInButton } from "@/components/sign-in-button";
 export default async function LandingPage() {
   // If already signed in, go straight to the app.
   const session = await auth();
-  if (session) redirect("/(app)");
+  if (session) redirect("/leaks");
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-4 py-24">
