@@ -4,20 +4,34 @@ import { studyNext, maturityGrid, computeLeakProfile } from "@/core/selectors";
 import { deriveDrillEmphasisHint } from "@/core/mutations";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useToast } from "@/components/toast";
 
 // ─── Daily Brief ────────────────────────────────────────────────────────────
 function DailyBrief() {
   const [brief, setBrief] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     setLoading(true);
     fetch("/api/ai/brief")
-      .then((r) => r.json())
-      .then((d) => setBrief(d.brief))
-      .catch(() => {})
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) {
+          if (r.status === 429) toast(d.brief || "Daily limit reached", "info");
+          else toast(d.brief || "Failed to load brief", "error");
+          return null;
+        }
+        return d;
+      })
+      .then((d) => {
+        if (d) setBrief(d.brief);
+      })
+      .catch(() => {
+        toast("Connection error loading brief", "error");
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [toast]);
 
   if (loading)
     return <div className="h-16 rounded-xl bg-zinc-100 animate-pulse" />;

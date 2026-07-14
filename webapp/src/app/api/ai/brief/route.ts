@@ -19,12 +19,6 @@ export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return new Response("Unauthorized", { status: 401 });
 
-  // Rate limit: share the mark counter (same model, same cost tier).
-  const currentUsage = await getAiUsage(session.user.id, "mark");
-  if (currentUsage >= DAILY_BRIEF_LIMIT) {
-    return new Response("Daily AI limit reached", { status: 429 });
-  }
-
   const { data } = await loadUserData(session.user.id);
   const next = studyNext(data.engines, data.mockRuns);
   const atRisk = next
@@ -35,8 +29,19 @@ export async function GET() {
     return Response.json({ brief: "No at-risk engines today." });
   }
 
+  // Rate limit: share the mark counter (same model, same cost tier).
+  const currentUsage = await getAiUsage(session.user.id, "mark");
+  if (currentUsage >= DAILY_BRIEF_LIMIT) {
+    return Response.json({ brief: "Daily AI limit reached. Try again tomorrow." }, { status: 429 });
+  }
+
+  // Increment BEFORE the call to avoid race conditions.
+  // We'll decrement if it fails if we want to be exact, but for a soft daily cap,
+  // increment-before is safer for the provider.
+  await incrementAiUsage(session.user.id, "mark");
+
   const studyList = atRisk
-    .map(e => `- ${e.title} (${e.comprehension}/${e.retrievalReliability})`)
+    .map(e => `- "${e.title.replace(/"/g, "'")}" (${e.comprehension}/${e.retrievalReliability})`)
     .join("\n");
 
   const system = `You are a strict law-exam coach. Zero flattery. Zero filler.
