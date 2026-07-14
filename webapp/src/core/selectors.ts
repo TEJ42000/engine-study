@@ -30,9 +30,12 @@ export function engineIdsWithUndrilledMisses(
 /**
  * AC7.2 ordering, deterministic:
  *   (1) engines with an undrilled mock miss
- *   (2) UNTESTED
- *   (3) FRAGILE, oldest-tested first
- *   (4) RELIABLE, oldest-tested first
+ *   (2) SHAKY + UNTESTED
+ *   (3) SOLID + UNTESTED
+ *   (4) SHAKY + FRAGILE
+ *   (5) SOLID + FRAGILE
+ *   (6) SHAKY + RELIABLE
+ *   (7) SOLID + RELIABLE
  * Within every group, tie-break by lastTestedAt ascending (never-tested first).
  */
 export function studyNext(
@@ -42,9 +45,13 @@ export function studyNext(
   const flagged = engineIdsWithUndrilledMisses(mockRuns);
   const rank = (e: Engine): number => {
     if (flagged.has(e.id)) return 0;
-    if (e.retrievalReliability === 'UNTESTED') return 1;
-    if (e.retrievalReliability === 'FRAGILE') return 2;
-    return 3; // RELIABLE
+
+    let base = 1;
+    if (e.retrievalReliability === 'UNTESTED') base = 1;
+    else if (e.retrievalReliability === 'FRAGILE') base = 3;
+    else base = 5; // RELIABLE
+
+    return e.comprehension === 'SHAKY' ? base : base + 1;
   };
   // never-tested (null) sorts first == "oldest".
   const testedKey = (e: Engine): number =>

@@ -71,8 +71,20 @@ export function cascadeDeleteCourse(
   return { data: next, counts };
 }
 
-export function cascadeDeleteEngine(data: CosmosData, engineId: string): CosmosData {
-  return {
+export function cascadeDeleteEngine(
+  data: CosmosData,
+  engineId: string,
+): { data: CosmosData; counts: CascadeCounts } {
+  const counts: CascadeCounts = {
+    engines: 1,
+    testSessions: data.testSessions.filter((s) => s.engineId === engineId).length,
+    leaks: data.leaks.filter((l) => l.engineId === engineId).length,
+    mockRuns: 0, // Mock runs aren't deleted, just their misses are updated
+    mockDrills: data.mockDrills.filter((d) => d.items.some((i) => i.engineId === engineId))
+      .length,
+  };
+
+  const next: CosmosData = {
     ...data,
     engines: data.engines.filter((e) => e.id !== engineId),
     testSessions: data.testSessions.filter((s) => s.engineId !== engineId),
@@ -87,6 +99,7 @@ export function cascadeDeleteEngine(data: CosmosData, engineId: string): CosmosD
       (d) => !d.items.some((i) => i.engineId === engineId),
     ),
   };
+  return { data: next, counts };
 }
 
 

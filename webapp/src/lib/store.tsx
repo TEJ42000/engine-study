@@ -27,6 +27,7 @@ import type { CascadeCounts } from "@/core/mutations";
 interface StoreCtx {
   data: CosmosData;
   loading: boolean;
+  syncStatus: "SAVED" | "SAVING" | "ERROR";
   setData: (next: CosmosData) => void;
   // F1
   addCourse: (name: string, profile: ExamProfile) => Course;
@@ -35,7 +36,7 @@ interface StoreCtx {
   // F2
   addEngine: (fields: Omit<Engine, "id" | "createdAt" | "comprehension" | "retrievalReliability" | "passStreak" | "lastTestedAt">) => Engine;
   updateEngine: (engine: Engine) => void;
-  deleteEngine: (id: string) => void;
+  deleteEngine: (id: string) => CascadeCounts;
   // F3 / F4
   recordSession: (session: TestSession) => void;
   // F5
@@ -58,27 +59,26 @@ export function useStore(): StoreCtx {
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setRaw] = useState<CosmosData>(emptyData());
   const [loading, setLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<"SAVED" | "SAVING" | "ERROR">("SAVED");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dataRef = useRef<CosmosData>(data);
   dataRef.current = data;
 
-  const flush = useCallback(() => {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-      fetch("/api/data", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildEnvelope(dataRef.current)),
-        keepalive: true,
-      });
-    }
-  }, []);
-
+  // Final flush using navigator.sendBeacon for tab-close reliability.
   useEffect(() => {
-    window.addEventListener("beforeunload", flush);
-    return () => window.removeEventListener("beforeunload", flush);
-  }, [flush]);
+    const handleBeforeUnload = () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        const blob = new Blob(
+          [JSON.stringify(buildEnvelope(dataRef.current))],
+          { type: "application/json" }
+        );
+        navigator.sendBeacon("/api/data", blob);
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   useEffect(() => {
     fetch("/api/data")
@@ -87,31 +87,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // [P7-007] Flush pending mutations before unload to prevent data loss.
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (timer.current) {
-        clearTimeout(timer.current);
-        // Synchronous final flush using navigator.sendBeacon for reliability.
-        const blob = new Blob(
-          [JSON.stringify(buildEnvelope(data))],
-          { type: "application/json" }
-        );
-        navigator.sendBeacon("/api/data", blob);
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [data]);
-
   const persist = useCallback((next: CosmosData) => {
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      fetch("/api/data", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildEnvelope(next)),
-      });
+    setSyncStatus("SAVING");
+    timer.current = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/data", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildEnvelope(next)),
+        });
+        if (!res.ok) throw new Error("Save failed");
+        setSyncStatus("SAVED");
+        timer.current = null;
+      } catch (err) {
+        console.error("[Store] Persist error:", err);
+        setSyncStatus("ERROR");
+      }
     }, 500);
   }, []);
 
@@ -151,8 +143,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     mutate((d) => upsertEngine(d, engine));
   }, [mutate]);
 
-  const deleteEngine = useCallback((id: string) => {
-    mutate((d) => cascadeDeleteEngine(d, id));
+  const deleteEngine = useCallback((id: string): CascadeCounts => {
+    let counts!: CascadeCounts;
+    mutate((d) => {
+      const r = cascadeDeleteEngine(d, id);
+      counts = r.counts;
+      return r.data;
+    });
+    return counts;
   }, [mutate]);
 
   // ── F3 / F4 sessions ──
@@ -176,7 +174,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      data, loading, setData,
+      data, loading, syncStatus, setData,
       addCourse, updateCourse, deleteCourse,
       addEngine, updateEngine, deleteEngine,
       recordSession, addLeak, addMockRun, markMissDrilled,

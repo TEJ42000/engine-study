@@ -6,6 +6,7 @@
  * A "no engine" miss shows a link to create an engine with the description as draft title (AC6.3).
  */
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { v4 as uuid } from "uuid";
 import { useStore } from "@/lib/store";
@@ -80,6 +81,16 @@ export default function NewMockRunPage() {
         {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
         <div className="grid grid-cols-2 gap-4">
+          {data.courses.length === 0 ? (
+            <div className="col-span-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-700">
+              You haven&apos;t created any courses yet.{" "}
+              <Link href="/courses/new" className="underline font-semibold">
+                Create your first course
+              </Link>{" "}
+              to record mock runs.
+            </div>
+          ) : (
+            <>
           <div className="space-y-1">
             <label className="block text-sm font-medium text-zinc-700">Course</label>
             <select value={courseId} onChange={(e) => setCourseId(e.target.value)}
@@ -92,6 +103,8 @@ export default function NewMockRunPage() {
             <input type="date" value={takenAt} onChange={(e) => setTakenAt(e.target.value)}
               className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm" />
           </div>
+            </>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -148,12 +161,12 @@ export default function NewMockRunPage() {
 
               {/* AC6.3 — no-engine miss shows create link */}
               {!m.engineId && m.description.trim() && (
-                <a
+                <Link
                   href={`/engines/new/edit?courseId=${courseId}&draft=${encodeURIComponent(m.description.trim())}`}
                   className="text-xs text-blue-600 underline hover:text-blue-800"
                 >
                   → Create engine from this miss
-                </a>
+                </Link>
               )}
             </div>
           ))}

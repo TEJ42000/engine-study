@@ -92,6 +92,10 @@ export default function EngineEditorPage({ params }: { params: Promise<{ id: str
     }
   }
 
+  const sessionCount = data.testSessions.filter((s) => s.engineId === existing?.id).length;
+  const leakCount = data.leaks.filter((l) => l.engineId === existing?.id).length;
+  const mockDrillCount = data.mockDrills.filter((d) => d.items.some((i) => i.engineId === existing?.id)).length;
+
   function insertPrecisionMarker(listSetter: React.Dispatch<React.SetStateAction<string[]>>, idx: number, ref: React.RefObject<HTMLTextAreaElement | null>) {
     const el = ref.current;
     if (!el) return;
@@ -179,12 +183,26 @@ export default function EngineEditorPage({ params }: { params: Promise<{ id: str
         </div>
 
         {!isNew && existing && (
-          <button
-            onClick={handleDelete}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${confirmDelete ? "bg-red-600 text-white" : "text-red-600 border border-red-200 hover:bg-red-50"}`}
-          >
-            {confirmDelete ? "Confirm Delete" : "Delete Engine"}
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            {confirmDelete && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1 max-w-xs text-right">
+                Delete this engine? This will also delete {sessionCount} sessions, {leakCount} leaks, and {mockDrillCount} mock drills.
+              </p>
+            )}
+            <div className="flex gap-2">
+              {confirmDelete && (
+                <button onClick={() => setConfirmDelete(false)} className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
+                  Cancel
+                </button>
+              )}
+              <button
+                onClick={handleDelete}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${confirmDelete ? "bg-red-600 text-white" : "text-red-600 border border-red-200 hover:bg-red-50"}`}
+              >
+                {confirmDelete ? "Confirm Delete" : "Delete Engine"}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

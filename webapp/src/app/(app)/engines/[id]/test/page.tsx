@@ -64,6 +64,7 @@ function TestRunner({ engine }: { engine: Engine }) {
   // AI Marking state (F4 2nd half)
   const [marking, setMarking] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<MarkingFeedback | null>(null);
+  const [aiRaw, setAiRaw] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
 
   // Leak form state (shown on FAIL, offered on PASS).
@@ -81,6 +82,7 @@ function TestRunner({ engine }: { engine: Engine }) {
     if (mode === "FULL_RECALL") {
       setMarking(true);
       setAiError(null);
+      setAiRaw(null);
       try {
         const activeCourse = data.courses.find((c) => c.id === engine.courseId);
         const res = await fetch("/api/ai/mark", {
@@ -99,7 +101,11 @@ function TestRunner({ engine }: { engine: Engine }) {
           throw new Error("AI marker is busy or unstable. Try again in a minute.");
         }
         const json = await res.json();
-        setAiFeedback(json.feedback);
+        if (json.score === null) {
+          setAiRaw(json.raw);
+        } else {
+          setAiFeedback(json.feedback);
+        }
       } catch (err) {
         setAiError(err instanceof Error ? err.message : "AI marking error");
       } finally {
@@ -296,6 +302,11 @@ function TestRunner({ engine }: { engine: Engine }) {
                     </div>
                   ) : aiError ? (
                     <p className="text-zinc-400 py-8 text-center">{aiError}</p>
+                  ) : aiRaw ? (
+                    <div className="space-y-3">
+                      <p className="text-xs text-amber-700 font-medium">AI Feedback (Raw):</p>
+                      <p className="text-zinc-700 whitespace-pre-wrap">{aiRaw}</p>
+                    </div>
                   ) : aiFeedback ? (
                     <div className="space-y-3">
                       <div className="flex items-baseline justify-between">
