@@ -35,7 +35,7 @@ export default function NewCoursePage() {
       .map((l) => l.trim())
       .filter(Boolean);
     addCourse(name.trim(), { ...profile, modes });
-    router.push("/");
+    router.push("/dashboard");
   }
 
   return (
@@ -106,7 +106,7 @@ export default function NewCoursePage() {
           </button>
           <button
             type="button"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
             className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
           >
             Cancel

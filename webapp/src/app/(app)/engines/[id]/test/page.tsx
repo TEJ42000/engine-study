@@ -122,7 +122,7 @@ function TestRunner({ engine }: { engine: Engine }) {
     setShowLeakForm(false);
   }
 
-  function handleDone() { router.push("/"); }
+  function handleDone() { router.push("/dashboard"); }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-16">

@@ -80,13 +80,13 @@ export default function EngineEditorPage({ params }: { params: Promise<{ id: str
     } else if (existing) {
       updateEngine({ ...existing, engineType, title: title.trim(), gate: gate.trim(), steps: cleanSteps, trigger: trigger.trim(), satellites: cleanSats, stacking, comprehension });
     }
-    router.push("/");
+    router.push("/dashboard");
   }
 
   function handleDelete() {
     if (confirmDelete && existing) {
       deleteEngine(existing.id);
-      router.push("/");
+      router.push("/dashboard");
     } else {
       setConfirmDelete(true);
     }
@@ -173,7 +173,7 @@ export default function EngineEditorPage({ params }: { params: Promise<{ id: str
           <button onClick={handleSave} className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors">
             Save engine
           </button>
-          <button onClick={() => router.push("/")} className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
+          <button onClick={() => router.push("/dashboard")} className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
             Cancel
           </button>
         </div>

@@ -4,7 +4,7 @@ import { signIn } from "next-auth/react";
 export function SignInButton() {
   return (
     <button
-      onClick={() => signIn("google", { callbackUrl: "/leaks" })}
+      onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
       className="flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 hover:border-zinc-300"
     >
       {/* Google G mark */}
