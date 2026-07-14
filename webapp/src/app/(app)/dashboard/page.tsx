@@ -202,7 +202,12 @@ export default function DashboardPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-zinc-600">{total} engines</span>
-                  <span className="font-semibold text-zinc-800">{mastery}% mastery</span>
+                  <span
+                    className="font-semibold text-zinc-800 cursor-help"
+                    title={`Mastery — the share of this course's engines rated Reliable (${reliable} of ${total}), i.e. how much you can recall reliably under test conditions.`}
+                  >
+                    {mastery}% mastery
+                  </span>
                 </div>
                 <MaturityBar reliable={reliable} fragile={fragile} untested={untested} total={total} />
                 <div className="flex gap-4 text-[10px] text-zinc-400">
