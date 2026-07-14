@@ -205,6 +205,34 @@ export default function EngineEditorPage({ params }: { params: Promise<{ id: str
           </div>
         )}
       </div>
+
+      {/* Session history (AC3.5) */}
+      {!isNew && existing && (() => {
+        const sessions = data.testSessions
+          .filter((s) => s.engineId === existing.id)
+          .slice()
+          .sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt))
+          .slice(0, 10);
+        if (!sessions.length) return null;
+        return (
+          <div className="space-y-3 pt-2">
+            <h2 className="text-sm font-semibold text-zinc-700">Session history</h2>
+            <div className="space-y-1.5">
+              {sessions.map((s) => (
+                <div key={s.id} className="flex items-center justify-between rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold ${s.result === "PASS" ? "text-green-600" : "text-red-600"}`}>{s.result}</span>
+                    <span className="text-zinc-400">{s.mode.replace("_", " ")}</span>
+                    {s.timed && <span className="text-zinc-400">⏱</span>}
+                    {s.timedOut && <span className="text-amber-500">timeout</span>}
+                  </div>
+                  <span className="text-zinc-400">{new Date(s.recordedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -17,9 +17,9 @@ import React, {
   useState,
 } from "react";
 import { v4 as uuid } from "uuid";
-import type { CosmosData, Course, Engine, ExamProfile, LeakEntry, MockRun, TestSession } from "@/core/types";
+import type { CosmosData, Course, Engine, ExamProfile, LeakEntry, MockDrill, MockRun, TestSession } from "@/core/types";
 import { emptyData, buildEnvelope } from "@/core/persistence";
-import { NEW_ENGINE_DEFAULTS, cascadeDeleteCourse, cascadeDeleteEngine, upsertCourse, upsertEngine, recordSession as coreRecord, addLeak as coreAddLeak, addMockRun as coreAddMockRun, markMissDrilled as coreMark } from "@/core/mutations";
+import { NEW_ENGINE_DEFAULTS, cascadeDeleteCourse, cascadeDeleteEngine, upsertCourse, upsertEngine, recordSession as coreRecord, addLeak as coreAddLeak, addMockRun as coreAddMockRun, markMissDrilled as coreMark, addMockDrill as coreAddMockDrill, updateMockDrill as coreUpdateMockDrill } from "@/core/mutations";
 import type { CascadeCounts } from "@/core/mutations";
 
 // ─── context shape ───────────────────────────────────────────────────────────
@@ -44,6 +44,9 @@ interface StoreCtx {
   // F6
   addMockRun: (run: MockRun) => void;
   markMissDrilled: (mockRunId: string, missId: string) => void;
+  // v1.1 Timed Mock Drill
+  addMockDrill: (drill: MockDrill) => void;
+  updateMockDrill: (drill: MockDrill) => void;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -172,12 +175,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     mutate((d) => coreMark(d, mockRunId, missId));
   }, [mutate]);
 
+  const addMockDrill = useCallback((drill: MockDrill) => {
+    mutate((d) => coreAddMockDrill(d, drill));
+  }, [mutate]);
+
+  const updateMockDrill = useCallback((drill: MockDrill) => {
+    mutate((d) => coreUpdateMockDrill(d, drill));
+  }, [mutate]);
+
   return (
     <Ctx.Provider value={{
       data, loading, syncStatus, setData,
       addCourse, updateCourse, deleteCourse,
       addEngine, updateEngine, deleteEngine,
       recordSession, addLeak, addMockRun, markMissDrilled,
+      addMockDrill, updateMockDrill,
     }}>
       {children}
     </Ctx.Provider>

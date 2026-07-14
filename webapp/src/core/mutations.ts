@@ -11,6 +11,7 @@ import type {
   Engine,
   ExamProfile,
   LeakEntry,
+  MockDrill,
   MockRun,
   TestSession,
 } from './types';
@@ -218,6 +219,18 @@ export function addMockRun(data: CosmosData, run: MockRun): CosmosData {
     ...data,
     mockRuns: [...data.mockRuns, run],
     leaks: [...data.leaks, ...mockLeaks],
+  };
+}
+
+// v1.1 — MockDrill mutations (SPEC_TIMED_MOCK.md)
+export function addMockDrill(data: CosmosData, drill: MockDrill): CosmosData {
+  return { ...data, mockDrills: [...data.mockDrills, drill] };
+}
+
+export function updateMockDrill(data: CosmosData, drill: MockDrill): CosmosData {
+  return {
+    ...data,
+    mockDrills: data.mockDrills.map((d) => (d.id === drill.id ? drill : d)),
   };
 }
 

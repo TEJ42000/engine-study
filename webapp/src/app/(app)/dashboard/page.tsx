@@ -70,9 +70,17 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-zinc-900">Dashboard</h1>
-        <Link href="/courses/new" className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 transition-colors">
-          + Course
-        </Link>
+        <div className="flex items-center gap-2">
+          {data.engines.length >= 2 && (
+            <Link href="/mocks/drill/new"
+              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 transition-colors">
+              ⏱ Timed Drill
+            </Link>
+          )}
+          <Link href="/courses/new" className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 transition-colors">
+            + Course
+          </Link>
+        </div>
       </div>
 
       <DailyBrief />
@@ -102,9 +110,9 @@ export default function DashboardPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-semibold text-zinc-900 truncate">
+                  <Link href={`/courses/${course.id}`} className="font-semibold text-zinc-900 truncate hover:text-zinc-600 transition-colors">
                     {course.name}
-                  </h2>
+                  </Link>
                   <Link
                     href={`/courses/${course.id}/edit`}
                     className="text-zinc-300 hover:text-zinc-600 transition-colors p-1"
