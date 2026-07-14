@@ -67,6 +67,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // [P7-007] Flush pending mutations before unload to prevent data loss.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        // Synchronous final flush using navigator.sendBeacon for reliability.
+        const blob = new Blob(
+          [JSON.stringify(buildEnvelope(data))],
+          { type: "application/json" }
+        );
+        navigator.sendBeacon("/api/data", blob);
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [data]);
+
   const persist = useCallback((next: CosmosData) => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
