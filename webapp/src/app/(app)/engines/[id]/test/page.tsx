@@ -94,7 +94,6 @@ function TestRunner({ engine }: { engine: Engine }) {
           }),
         });
         if (!res.ok) {
-        if (!res.ok) {
           if (res.status === 429) throw new Error("Quota exceeded — wait until tomorrow or use fewer satellites.");
           if (res.status === 413) throw new Error("Payload too large for Haiku 4.5.");
           throw new Error("AI marker is busy or unstable. Try again in a minute.");

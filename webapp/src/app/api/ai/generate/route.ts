@@ -69,7 +69,6 @@ OUTPUT: a valid JSON array only. No prose. No markdown fences. No extra fields.
   }
 ]`;
 }
-}
 
 export async function POST(req: Request) {
   const session = await auth();
