@@ -6,6 +6,7 @@ import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { Badge } from "@/components/badge";
+import { SyllabusUploader, type ExtractedCourse } from "@/components/syllabus-uploader";
 
 interface EngineDraft {
   title: string;
@@ -28,6 +29,14 @@ export default function GeneratePage({ params }: { params: Promise<{ id: string 
   const [generating, setGenerating] = useState(false);
   const [drafts, setDrafts] = useState<EngineDraft[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [aiLoaded, setAiLoaded] = useState(false);
+
+  function handleExtracted(data: ExtractedCourse) {
+    if (data.sourceExcerpt) {
+      setSource(data.sourceExcerpt);
+      setAiLoaded(true);
+    }
+  }
 
   if (!course) return <div className="p-8 text-center text-zinc-500">Course not found.</div>;
 
@@ -74,15 +83,24 @@ export default function GeneratePage({ params }: { params: Promise<{ id: string 
       </div>
 
       <div className="space-y-4">
+        <SyllabusUploader onExtracted={handleExtracted} />
+
+        {aiLoaded && (
+          <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm text-emerald-700">
+            <span>✨</span>
+            <span>AI extracted the key content — review it below or generate engines straight away.</span>
+          </div>
+        )}
+
         <div className="space-y-2">
           <label className="text-sm font-medium text-zinc-700">Source Material</label>
-          <p className="text-xs text-zinc-400">Paste syllabus, lecture notes, or textbook sections. Max ~12,000 characters.</p>
+          <p className="text-xs text-zinc-400">Extracted content appears here automatically, or paste your own. Max ~12,000 characters.</p>
           <textarea
             value={source}
-            onChange={(e) => setSource(e.target.value)}
+            onChange={(e) => { setSource(e.target.value); setAiLoaded(false); }}
             rows={10}
             className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400 font-mono"
-            placeholder="Paste source material here..."
+            placeholder="Upload a file above, or paste source material here..."
           />
         </div>
 

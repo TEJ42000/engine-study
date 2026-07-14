@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import type { ExamProfile } from "@/core/types";
+import { SyllabusUploader, type ExtractedCourse } from "@/components/syllabus-uploader";
 
 const DEFAULT_PROFILE: ExamProfile = {
   openBook: false,
@@ -22,6 +23,19 @@ export default function NewCoursePage() {
   const [profile, setProfile] = useState<ExamProfile>(DEFAULT_PROFILE);
   const [modesInput, setModesInput] = useState("");
   const [error, setError] = useState("");
+  const [aiPrefilled, setAiPrefilled] = useState(false);
+
+  function handleExtracted(data: ExtractedCourse) {
+    setName(data.courseName || "");
+    setProfile({
+      openBook: data.openBook ?? false,
+      appliedVsMemorization: data.appliedVsMemorization ?? "MEMORIZATION",
+      pathGraded: data.pathGraded ?? false,
+      modes: data.modes ?? [],
+    });
+    setModesInput((data.modes ?? []).join("\n"));
+    setAiPrefilled(true);
+  }
 
   function set<K extends keyof ExamProfile>(k: K, v: ExamProfile[K]) {
     setProfile((p) => ({ ...p, [k]: v }));
@@ -40,7 +54,19 @@ export default function NewCoursePage() {
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
-      <h1 className="text-xl font-semibold text-zinc-900">New course</h1>
+      <div className="space-y-1">
+        <h1 className="text-xl font-semibold text-zinc-900">New course</h1>
+        <p className="text-sm text-zinc-400">Upload a syllabus and AI will fill everything in for you.</p>
+      </div>
+
+      <SyllabusUploader onExtracted={handleExtracted} />
+
+      {aiPrefilled && (
+        <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm text-emerald-700">
+          <span>✨</span>
+          <span>AI filled in the course name and exam profile — review and adjust before saving.</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Name */}

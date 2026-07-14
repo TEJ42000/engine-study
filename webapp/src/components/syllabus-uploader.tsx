@@ -1,0 +1,145 @@
+"use client";
+/**
+ * SyllabusUploader — drag-and-drop / click-to-upload component.
+ * Sends the file to /api/ai/extract and returns structured course metadata.
+ */
+import { useRef, useState, useCallback } from "react";
+
+export interface ExtractedCourse {
+  courseName: string;
+  openBook: boolean;
+  appliedVsMemorization: "MEMORIZATION" | "APPLIED" | "MIXED";
+  pathGraded: boolean;
+  modes: string[];
+  sourceExcerpt: string;
+}
+
+interface Props {
+  onExtracted: (data: ExtractedCourse) => void;
+}
+
+type Phase = "idle" | "dragging" | "uploading" | "done" | "error";
+
+export function SyllabusUploader({ onExtracted }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [fileName, setFileName] = useState("");
+
+  const upload = useCallback(async (file: File) => {
+    setFileName(file.name);
+    setPhase("uploading");
+    setErrorMsg("");
+
+    const form = new FormData();
+    form.append("file", file);
+
+    try {
+      const res = await fetch("/api/ai/extract", { method: "POST", body: form });
+      const body = await res.json();
+      if (!res.ok) {
+        setErrorMsg(body.error ?? "Extraction failed. Please try again.");
+        setPhase("error");
+        return;
+      }
+      setPhase("done");
+      onExtracted(body as ExtractedCourse);
+    } catch {
+      setErrorMsg("Network error. Check your connection and try again.");
+      setPhase("error");
+    }
+  }, [onExtracted]);
+
+  function handleFile(file: File | null | undefined) {
+    if (!file) return;
+    upload(file);
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setPhase("idle");
+    handleFile(e.dataTransfer.files[0]);
+  }
+
+  const isUploading = phase === "uploading";
+
+  return (
+    <div className="space-y-3">
+      {/* Drop zone */}
+      <div
+        onClick={() => !isUploading && inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); if (!isUploading) setPhase("dragging"); }}
+        onDragLeave={() => setPhase("idle")}
+        onDrop={onDrop}
+        className={`
+          relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed
+          cursor-pointer select-none transition-all duration-200 px-6 py-10 text-center
+          ${phase === "dragging" ? "border-zinc-600 bg-zinc-50 scale-[1.01]" : ""}
+          ${phase === "uploading" ? "border-zinc-300 bg-zinc-50 cursor-default" : ""}
+          ${phase === "done" ? "border-emerald-400 bg-emerald-50" : ""}
+          ${phase === "error" ? "border-red-300 bg-red-50" : ""}
+          ${phase === "idle" ? "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50" : ""}
+        `}
+      >
+        {/* Icon */}
+        <div className={`text-3xl transition-transform duration-300 ${isUploading ? "animate-spin" : ""}`}>
+          {phase === "done" ? "✅" : phase === "error" ? "⚠️" : isUploading ? "⏳" : "📄"}
+        </div>
+
+        {/* Label */}
+        {phase === "idle" && (
+          <div>
+            <p className="text-sm font-medium text-zinc-700">Drop your syllabus here</p>
+            <p className="text-xs text-zinc-400 mt-0.5">PDF, DOCX, or TXT · max 10 MB</p>
+          </div>
+        )}
+        {phase === "dragging" && <p className="text-sm font-medium text-zinc-700">Release to upload</p>}
+        {phase === "uploading" && (
+          <div>
+            <p className="text-sm font-medium text-zinc-700">Analysing <span className="font-mono text-xs">{fileName}</span>…</p>
+            <p className="text-xs text-zinc-400 mt-0.5">AI is reading your document</p>
+          </div>
+        )}
+        {phase === "done" && (
+          <div>
+            <p className="text-sm font-medium text-emerald-700">Fields auto-filled!</p>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setPhase("idle"); inputRef.current?.click(); }}
+              className="mt-1 text-xs text-emerald-600 underline underline-offset-2"
+            >
+              Upload a different file
+            </button>
+          </div>
+        )}
+        {phase === "error" && (
+          <div>
+            <p className="text-sm font-medium text-red-700">{errorMsg}</p>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setPhase("idle"); }}
+              className="mt-1 text-xs text-red-600 underline underline-offset-2"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+          className="hidden"
+          onChange={(e) => handleFile(e.target.files?.[0])}
+        />
+      </div>
+
+      {/* Divider */}
+      <div className="flex items-center gap-3 text-zinc-300">
+        <hr className="flex-1 border-zinc-200" />
+        <span className="text-xs text-zinc-400">or fill in manually</span>
+        <hr className="flex-1 border-zinc-200" />
+      </div>
+    </div>
+  );
+}
