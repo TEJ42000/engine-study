@@ -16,7 +16,7 @@ import { NEW_ENGINE_DEFAULTS } from "@/core/mutations";
 
 // Regex-based precision candidate detector (AC2.4).
 const PRECISION_CANDIDATE_RE =
-  /Art\.?\s*\d+[a-z]?(\(\d+\))?|C-\d+\/\d+|T-\d+\/\d+|\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+ v (?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)|\b\d{4}\b|[A-Za-z]+ erga omnes|[A-Za-z]+ ex ante|[A-Za-z]+ ex post|[A-Za-z]+ inter partes|[A-Za-z]+ inter alia|[A-Za-z]+ prima facie/g;
+  /Art\.?\s*\d+[a-z]?(\(\d+\))?|C-\d+\/\d+|T-\d+\/\d+|\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+ v (?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)|\b\d{4}\b|[A-Za-z]+ erga omnes|[A-Za-z]+ ex ante|[A-Za-z]+ ex post|[A-Za-z]+ inter partes|[A-Za-z]+ inter alia|[A-Za-z]+ prima facie/;
 
 function hasCandidates(text: string) { return PRECISION_CANDIDATE_RE.test(text); }
 
@@ -27,7 +27,7 @@ function parsePastedLines(raw: string): string[] {
     .filter(Boolean);
 }
 
-type EditableEngine = Omit<Engine, "id" | "createdAt" | "comprehension" | "retrievalReliability" | "passStreak" | "lastTestedAt" | "stacking">;
+type EditableEngine = Omit<Engine, "id" | "createdAt" | "comprehension" | "retrievalReliability" | "passStreak" | "lastTestedAt">;
 
 export default function EngineEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -76,7 +76,7 @@ export default function EngineEditorPage({ params }: { params: Promise<{ id: str
     const cleanSats = satellites.map((s) => s.trim()).filter(Boolean);
 
     if (isNew) {
-      addEngine({ courseId, engineType, title: title.trim(), gate: gate.trim(), steps: cleanSteps, trigger: trigger.trim(), satellites: cleanSats });
+      addEngine({ courseId, engineType, title: title.trim(), gate: gate.trim(), steps: cleanSteps, trigger: trigger.trim(), satellites: cleanSats, stacking });
     } else if (existing) {
       updateEngine({ ...existing, engineType, title: title.trim(), gate: gate.trim(), steps: cleanSteps, trigger: trigger.trim(), satellites: cleanSats, stacking, comprehension });
     }

@@ -75,8 +75,12 @@ export function applyMaturityTransition(
         if (elapsedHours >= config.decayWindowHours) reliability = 'RELIABLE';
       }
     } else {
-      reliability = 'FRAGILE';
-      passStreak = 0;
+      if (reliability === 'RELIABLE' && passStreak > 0) {
+        passStreak = 0; // One grace strike; stay RELIABLE but reset streak.
+      } else {
+        reliability = 'FRAGILE';
+        passStreak = 0;
+      }
     }
   } else if (event.sessionMode === 'PRECISION_CHECK') {
     if (event.result === 'FAIL' && reliability === 'RELIABLE') {

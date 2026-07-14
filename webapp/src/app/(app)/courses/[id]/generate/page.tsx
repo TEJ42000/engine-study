@@ -15,6 +15,7 @@ interface EngineDraft {
   trigger: string;
   satellites: string[];
   stacking: boolean;
+  confidence: number;
 }
 
 export default function GeneratePage({ params }: { params: Promise<{ id: string }> }) {
@@ -40,8 +41,10 @@ export default function GeneratePage({ params }: { params: Promise<{ id: string 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           courseId,
+          courseName: course.name,
           source,
           examProfile: course.examProfile,
+          existingTitles: data.engines.filter(e => e.courseId === courseId).map(e => e.title),
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -105,6 +108,7 @@ export default function GeneratePage({ params }: { params: Promise<{ id: string 
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-zinc-900">{draft.title}</h3>
                       <Badge variant="untested">{draft.engineType}</Badge>
+                      <span className="text-[10px] text-zinc-400 font-mono">Confidence: {draft.confidence}%</span>
                     </div>
                     <p className="text-xs text-zinc-500">Gate: {draft.gate}</p>
                   </div>

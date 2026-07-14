@@ -9,7 +9,34 @@ import { useStore } from "@/lib/store";
 import { studyNext, maturityGrid, computeLeakProfile } from "@/core/selectors";
 import { deriveDrillEmphasisHint } from "@/core/mutations";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+function DailyBrief() {
+  const [brief, setBrief] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/ai/brief")
+      .then((r) => r.json())
+      .then((d) => setBrief(d.brief))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="h-20 rounded-lg bg-zinc-50 animate-pulse border border-zinc-200" />;
+  if (!brief) return null;
+
+  return (
+    <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-bold text-blue-800 uppercase tracking-wider">Daily Study Brief</h2>
+        <span className="text-[10px] text-blue-400">Haiku 4.5</span>
+      </div>
+      <p className="text-sm text-zinc-700 italic leading-relaxed">{brief}</p>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const { data, loading, deleteCourse } = useStore();
@@ -48,8 +75,22 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      <DailyBrief />
+
       {data.courses.map((course) => {
         const engines = data.engines.filter((e) => e.courseId === course.id);
+        const engineIds = new Set(engines.map((e) => e.id));
+        const sessionCount = data.testSessions.filter((s) =>
+          engineIds.has(s.engineId),
+        ).length;
+        const leakCount = data.leaks.filter((l) => l.courseId === course.id).length;
+        const mockRunCount = data.mockRuns.filter(
+          (m) => m.courseId === course.id,
+        ).length;
+        const mockDrillCount = data.mockDrills.filter((d) =>
+          d.items.some((i) => i.courseId === course.id),
+        ).length;
+
         const next = studyNext(engines, data.mockRuns);
         const grid = maturityGrid(engines);
         const leakProfile = computeLeakProfile(data.leaks, course.id, new Date().toISOString());
@@ -61,7 +102,16 @@ export default function DashboardPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-semibold text-zinc-900 truncate">{course.name}</h2>
+                  <h2 className="font-semibold text-zinc-900 truncate">
+                    {course.name}
+                  </h2>
+                  <Link
+                    href={`/courses/${course.id}/edit`}
+                    className="text-zinc-300 hover:text-zinc-600 transition-colors p-1"
+                    title="Edit exam profile"
+                  >
+                    ✎
+                  </Link>
                   <button
                     onClick={() => setDeletingId(course.id)}
                     className="text-zinc-300 hover:text-red-500 transition-colors p-1"
@@ -92,7 +142,9 @@ export default function DashboardPage() {
             {deletingId === course.id && (
               <div className="rounded border border-red-200 bg-red-50 p-3 space-y-2">
                 <p className="text-xs font-medium text-red-800">
-                  Delete "{course.name}"? This will also delete all {engines.length} engines, sessions, and leaks.
+                  Delete "{course.name}"? This will also delete {engines.length}{" "}
+                  engines, {sessionCount} sessions, {leakCount} leaks,{" "}
+                  {mockRunCount} mock runs, and {mockDrillCount} mock drills.
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -132,7 +184,7 @@ export default function DashboardPage() {
                 <p className="text-xs font-medium text-zinc-500 mb-1.5">Study next</p>
                 <div className="space-y-1">
                   {next.slice(0, 5).map((e) => (
-                    <div className="flex items-center gap-1">
+                    <div key={e.id} className="flex items-center gap-1">
                       <Link
                         href={`/engines/${e.id}/edit`}
                         className="text-xs text-zinc-400 hover:text-zinc-600 px-1"
@@ -141,7 +193,6 @@ export default function DashboardPage() {
                         ✎
                       </Link>
                       <Link
-                        key={e.id}
                         href={`/engines/${e.id}/test`}
                         className="flex items-center justify-between rounded-md px-3 py-2 bg-zinc-50 hover:bg-zinc-100 transition-colors flex-1 min-w-0"
                       >

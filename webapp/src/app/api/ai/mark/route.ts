@@ -5,11 +5,11 @@
  * Model: Haiku 4.5 — small rubric task; cheap and fast.
  * Rate limit: 40 calls/day per user (generous for exam prep; raises cost alarm).
  *
- * Body: { engine: Engine, gateAttempt: string, attempt: string }
+ * Body: { engine: Engine, gateAttempt: string, attempt: string, course?: { name: string, examProfile: any } }
  * Response: { score: number, feedback: MarkingFeedback }
  */
 import { auth } from "@/lib/auth";
-import { incrementAiUsage } from "@/lib/db";
+import { getAiUsage, incrementAiUsage } from "@/lib/db";
 import { oneShot, MODELS } from "@/lib/ai";
 import type { Engine } from "@/core/types";
 
@@ -17,37 +17,46 @@ const DAILY_MARK_LIMIT = 40;
 
 interface MarkingFeedback {
   score: number;          // 0–10
+  confidence: number;     // 0-100
   correct: string[];      // 2–4 bullets
   missing: string[];      // 2–4 bullets
   structureNote: string;  // answered directly? named authority? stopped when done?
   keyToAdd: string;       // one thing to add next time
 }
 
-function buildSystem(engine: Engine): string {
-  return `You are a strict law examiner with zero flattery. Mark the student's recall of the engine below.
+function buildSystem(engine: Engine, course?: { name: string, examProfile: any }): string {
+  const context = course
+    ? `COURSE CONTEXT: ${course.name} (${course.examProfile.openBook ? 'Open Book' : 'Closed Book'}, ${course.examProfile.appliedVsMemorization})\n`
+    : '';
 
-ENGINE:
+  return `You are a strict law-exam marker. You have ZERO tolerance for vagueness and give ZERO flattery.
+
+${context}ENGINE BEING MARKED:
 Title: ${engine.title}
+Type: ${engine.engineType}
 Gate: ${engine.gate}
-Steps:
+Steps (execute in this order):
 ${engine.steps.map((s, i) => `  ${i + 1}. ${s}`).join("\n")}
 Trigger: ${engine.trigger}
-Satellites:
+Satellites (exact terms):
 ${engine.satellites.map((s) => `  - ${s}`).join("\n")}
 
-MARKING RULES (mandatory):
-1. If the student skipped the gate or lost/added a whole step → FAIL (score 0–4).
-2. Wording slips that preserve the substance → pass the step.
-3. Precision terms inside {{ }} must be exact; near-misses reduce score.
-4. Score 0–10. Be honest; do not round up.
+MARKING RULES — apply every rule, no exceptions:
+1. Gate first: if the student did not address the gate, score is 0–3 maximum.
+2. Step order matters: out-of-order execution = structural deduction (−1 per swap).
+3. {{precision target}} spans require the EXACT term/figure. Near-miss = −1 per occurrence.
+4. Omitting a whole step = −1.5; adding a wholly invented step = −0.5.
+5. Wording slips that preserve substance do NOT penalise.
+6. Score is 0–10 (integer). Do NOT round up. Do NOT give 10 unless perfect.
 
-OUTPUT FORMAT (strict JSON, no prose outside it):
+RESPONSE — output ONLY this JSON, no markdown fences, no prose:
 {
-  "score": <integer 0-10>,
-  "correct": ["<bullet>", ...],
-  "missing": ["<bullet>", ...],
-  "structureNote": "<one sentence on answer structure>",
-  "keyToAdd": "<one sentence>"
+  "score": <integer 0–10>,
+  "confidence": <integer 0-100: how certain are you that this mark is accurate?>,
+  "correct": ["<what was right, max 4 bullets>"],
+  "missing": ["<what was missing or wrong, max 4 bullets>"],
+  "structureNote": "<one sentence: did they gate first? execute in order? stop cleanly?>",
+  "keyToAdd": "<one sentence: the single most valuable thing to add next time>"
 }`;
 }
 
@@ -55,31 +64,46 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return new Response("Unauthorized", { status: 401 });
 
-  // Rate limit check.
-  const count = await incrementAiUsage(session.user.id, "mark");
-  if (count > DAILY_MARK_LIMIT) {
+  // XC-002: Body size limit (DoS vector).
+  const contentLength = Number(req.headers.get("Content-Length") ?? 0);
+  if (contentLength > 50000) return new Response("Payload too large", { status: 413 });
+
+  // P1-003: Rate limit check (off-by-one fix).
+  const currentUsage = await getAiUsage(session.user.id, "mark");
+  if (currentUsage >= DAILY_MARK_LIMIT) {
     return new Response("Daily AI marking limit reached", { status: 429 });
   }
 
-  const { engine, gateAttempt, attempt } = (await req.json()) as {
+  const body = await req.json();
+  const { engine, gateAttempt, attempt, course } = body as {
     engine: Engine;
     gateAttempt: string;
     attempt: string;
+    course?: { name: string, examProfile: any };
   };
 
-  const system = buildSystem(engine);
+  // XC-003: Basic runtime validation.
+  if (!engine || !gateAttempt || !attempt) {
+    return new Response("Missing required fields", { status: 400 });
+  }
+
+  const system = buildSystem(engine, course);
   const prompt = `GATE ATTEMPT:\n${gateAttempt}\n\nFULL RECALL:\n${attempt}`;
 
   const raw = await oneShot({
     modelId: MODELS.marking,
     system,
     prompt,
-    maxTokens: 600,
+    maxTokens: 800,
   });
+
+  // P1-004: Increment AFTER successful call.
+  await incrementAiUsage(session.user.id, "mark");
 
   let feedback: MarkingFeedback;
   try {
-    feedback = JSON.parse(raw);
+    const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
+    feedback = JSON.parse(cleaned);
   } catch {
     // Fallback: return raw text so the UI can still display it.
     return Response.json({ score: null, raw }, { status: 200 });

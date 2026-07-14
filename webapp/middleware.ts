@@ -5,11 +5,14 @@ export { auth as middleware } from "@/lib/auth";
 
 export const config = {
   matcher: [
-    // Protect every route except:
-    //   /            — landing / sign-in page (must stay public)
-    //   /_next/…     — Next.js internals
-    //   /favicon.ico — static asset
-    //   /api/auth/…  — NextAuth OAuth callbacks (must stay public)
-    "/((?!$|_next/|favicon\\.ico|api/auth).*)",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api/auth (NextAuth OAuth)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - root (/) (landing page)
+     */
+    "/((?!api/auth|_next/static|_next/image|favicon\\.ico|$).*)",
   ],
 };

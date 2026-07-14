@@ -70,6 +70,15 @@ export function parseEnvelope(json: string): ImportResult {
     typeof env.data === 'object' && env.data !== null
       ? (env.data as Partial<CosmosData>)
       : {};
+
+  // Strict validation of core arrays (P1-002 fix)
+  if (incoming.courses && !Array.isArray(incoming.courses)) return { ok: false, reason: "Invalid courses: expected array" };
+  if (incoming.engines && !Array.isArray(incoming.engines)) return { ok: false, reason: "Invalid engines: expected array" };
+  if (incoming.leaks && !Array.isArray(incoming.leaks)) return { ok: false, reason: "Invalid leaks: expected array" };
+  if (incoming.mockRuns && !Array.isArray(incoming.mockRuns)) return { ok: false, reason: "Invalid mockRuns: expected array" };
+  if (incoming.testSessions && !Array.isArray(incoming.testSessions)) return { ok: false, reason: "Invalid testSessions: expected array" };
+  if (incoming.mockDrills && !Array.isArray(incoming.mockDrills)) return { ok: false, reason: "Invalid mockDrills: expected array" };
+
   const data: CosmosData = { ...emptyData(), ...incoming };
   if (!Array.isArray(data.mockDrills)) data.mockDrills = [];
 

@@ -1,7 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import type { NeonQueryFunction } from "@neondatabase/serverless";
 import type { CosmosData } from "@/core/types";
-import { emptyData } from "@/core/persistence";
+import { buildEnvelope, emptyData } from "@/core/persistence";
 
 // Lazily initialised so the module can be imported at build time without
 // DATABASE_URL being present. The function throws at runtime if the env var
@@ -19,7 +19,7 @@ function getSql(): NeonQueryFunction<false, false> {
 
 /** Load the CosmosData envelope for a user. Returns emptyData() on first visit. */
 export async function loadUserData(
-  userId: string
+  userId: string,
 ): Promise<{ data: CosmosData; fresh: boolean }> {
   const sql = getSql();
   const rows = await sql`
@@ -29,22 +29,46 @@ export async function loadUserData(
     return { data: emptyData(), fresh: true };
   }
   // data is stored as JSONB; neon returns it already parsed.
-  return { data: rows[0].data as CosmosData, fresh: false };
+  const envelope = rows[0].data as any;
+  // Migration path: if DB row is raw CosmosData, treat as v1.
+  if (envelope && !("schemaVersion" in envelope)) {
+    return { data: envelope as CosmosData, fresh: false };
+  }
+  return { data: envelope.data as CosmosData, fresh: false };
 }
 
 /** Upsert the CosmosData envelope for a user (atomic replace). */
 export async function saveUserData(
   userId: string,
   email: string,
-  data: CosmosData
+  data: CosmosData,
 ): Promise<void> {
   const sql = getSql();
+  const envelope = buildEnvelope(data);
+  const json = JSON.stringify(envelope);
   await sql`
     INSERT INTO user_data (user_id, email, data)
-    VALUES (${userId}, ${email}, ${JSON.stringify(data)})
+    VALUES (${userId}, ${email}, ${json})
     ON CONFLICT (user_id)
-    DO UPDATE SET data = ${JSON.stringify(data)}, updated_at = NOW()
+    DO UPDATE SET data = ${json}, updated_at = NOW()
   `;
+}
+
+/** Returns how many times a user has called an AI endpoint today. */
+export async function getAiUsage(
+  userId: string,
+  endpoint: "mark" | "generate",
+): Promise<number> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT mark_calls, generate_calls
+    FROM ai_usage
+    WHERE user_id = ${userId} AND date = CURRENT_DATE
+  `;
+  if (rows.length === 0) return 0;
+  return (endpoint === "mark"
+    ? rows[0].mark_calls
+    : rows[0].generate_calls) as number;
 }
 
 /**

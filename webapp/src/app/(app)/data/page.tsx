@@ -104,8 +104,13 @@ export default function DataPage() {
           Select a previously exported JSON file. The schema version is validated before anything changes — an unknown version will never wipe your data.
         </p>
 
-        <input ref={fileRef} type="file" accept=".json" onChange={handleFileChange}
-          className="block text-sm text-zinc-600 file:mr-3 file:rounded file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200 cursor-pointer" />
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json"
+          onChange={handleFileChange}
+          className={`block text-sm text-zinc-600 file:mr-3 file:rounded file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200 cursor-pointer ${importStatus.phase === "error" ? "ring-2 ring-red-500 rounded-lg" : ""}`}
+        />
 
         {importStatus.phase === "error" && (
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 space-y-1">

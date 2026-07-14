@@ -42,6 +42,7 @@ export interface CascadeCounts {
   testSessions: number;
   leaks: number;
   mockRuns: number;
+  mockDrills: number;
 }
 
 export function cascadeDeleteCourse(
@@ -56,6 +57,7 @@ export function cascadeDeleteCourse(
     testSessions: data.testSessions.filter((s) => engineIds.has(s.engineId)).length,
     leaks: data.leaks.filter((l) => l.courseId === courseId).length,
     mockRuns: data.mockRuns.filter((m) => m.courseId === courseId).length,
+    mockDrills: data.mockDrills.filter((d) => d.items.some((i) => i.courseId === courseId)).length,
   };
   const next: CosmosData = {
     ...data,
@@ -64,9 +66,29 @@ export function cascadeDeleteCourse(
     testSessions: data.testSessions.filter((s) => !engineIds.has(s.engineId)),
     leaks: data.leaks.filter((l) => l.courseId !== courseId),
     mockRuns: data.mockRuns.filter((m) => m.courseId !== courseId),
+    mockDrills: data.mockDrills.filter((d) => !d.items.some((i) => i.courseId === courseId)),
   };
   return { data: next, counts };
 }
+
+export function cascadeDeleteEngine(data: CosmosData, engineId: string): CosmosData {
+  return {
+    ...data,
+    engines: data.engines.filter((e) => e.id !== engineId),
+    testSessions: data.testSessions.filter((s) => s.engineId !== engineId),
+    leaks: data.leaks.filter((l) => l.engineId !== engineId),
+    mockRuns: data.mockRuns.map((m) => ({
+      ...m,
+      misses: m.misses.map((miss) =>
+        miss.engineId === engineId ? { ...miss, engineId: null } : miss,
+      ),
+    })),
+    mockDrills: data.mockDrills.filter(
+      (d) => !d.items.some((i) => i.engineId === engineId),
+    ),
+  };
+}
+
 
 // F3 steps 5–6 / §1.2 — record a test session: insert it, apply the maturity
 // transition to its engine, apply the comprehension self-mark (null = no change),

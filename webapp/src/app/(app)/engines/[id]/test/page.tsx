@@ -6,7 +6,7 @@
  * AC3.5: Stores verbatim gate attempt + full attempt in TestSession.
  * AC3.6: Session only recorded on explicit grade — refresh loses the in-progress attempt only.
  */
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuid } from "uuid";
 import { useStore } from "@/lib/store";
@@ -19,6 +19,7 @@ interface MarkingFeedback {
   missing: string[];
   structureNote: string;
   keyToAdd: string;
+  confidence?: number;
 }
 
 type Phase = "INPUT" | "REVEALED" | "GRADED";
@@ -38,7 +39,11 @@ import type { Engine } from "@/core/types";
 
 function TestRunner({ engine }: { engine: Engine }) {
   const router = useRouter();
-  const { recordSession, addLeak } = useStore();
+  const { data, recordSession, addLeak } = useStore();
+
+  const allText = [...engine.steps, ...engine.satellites].join("\n");
+  const targets = Array.from(allText.matchAll(/\{\{(.+?)\}\}/g)).map((m) => m[1]);
+  const hasPrecisionTargets = targets.length > 0;
 
   // Mode toggle (F4)
   const [mode, setMode] = useState<"FULL_RECALL" | "PRECISION_CHECK">("FULL_RECALL");
@@ -48,6 +53,13 @@ function TestRunner({ engine }: { engine: Engine }) {
   const [result, setResult] = useState<Result | null>(null);
   const [comprehension, setComprehension] = useState<Comprehension>(engine.comprehension);
   const [startedAt] = useState(() => new Date().toISOString());
+
+  // Usage tracking (P4-002)
+  const [usage, setUsage] = useState<{ mark: { used: number, limit: number } } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/ai/usage").then(r => r.json()).then(setUsage).catch(() => {});
+  }, []);
 
   // AI Marking state (F4 2nd half)
   const [marking, setMarking] = useState(false);
@@ -70,14 +82,24 @@ function TestRunner({ engine }: { engine: Engine }) {
       setMarking(true);
       setAiError(null);
       try {
+        const activeCourse = data.courses.find((c) => c.id === engine.courseId);
         const res = await fetch("/api/ai/mark", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ engine, gateAttempt, attempt }),
+          body: JSON.stringify({
+            engine,
+            gateAttempt,
+            attempt,
+            course: activeCourse ? { name: activeCourse.name, examProfile: activeCourse.examProfile } : undefined
+          }),
         });
-        if (!res.ok) throw new Error("AI marking failed");
-        const data = await res.json();
-        setAiFeedback(data.feedback);
+        if (!res.ok) {
+          if (res.status === 429) throw new Error("Quota exceeded — wait until tomorrow or use fewer satellites.");
+          if (res.status === 413) throw new Error("Payload too large for Haiku 4.5.");
+          throw new Error("AI marker is busy or unstable. Try again in a minute.");
+        }
+        const json = await res.json();
+        setAiFeedback(json.feedback);
       } catch (err) {
         setAiError(err instanceof Error ? err.message : "AI marking error");
       } finally {
@@ -88,21 +110,30 @@ function TestRunner({ engine }: { engine: Engine }) {
 
   function handleGrade(r: Result) {
     setResult(r);
-    const now = new Date().toISOString();
-    const session: TestSession = {
-      id: uuid(),
-      engineId: engine.id,
-      mode,
-      gateAttempt,
-      attempt,
-      result: r,
-      comprehensionAfter: comprehension,
-      startedAt,
-      recordedAt: now,
-    };
-    recordSession(session);
     setPhase("GRADED");
-    if (r === "FAIL") setShowLeakForm(true);
+
+    // F3 AC3.5 — suggest SHAKY on any FAIL (graceful volatility protection).
+    if (r === "FAIL") {
+      setComprehension("SHAKY");
+    }
+
+    if (r === "FAIL" || (mode === "PRECISION_CHECK" && targets.some((t, i) => {
+      const answers = attempt ? JSON.parse(attempt) : [];
+      return (answers[i] ?? "").trim().toLowerCase() !== t.trim().toLowerCase();
+    }))) {
+      const answers = attempt ? JSON.parse(attempt) : [];
+      const misses = targets
+        .map((t, i) => ({ target: t, answer: answers[i] ?? "" }))
+        .filter(x => x.target.trim().toLowerCase() !== x.answer.trim().toLowerCase())
+        .map(x => `Missed: "${x.target}" (wrote: "${x.answer || "(blank)"}")`)
+        .join("\n");
+
+      if (misses) {
+        setLeakType("PRECISION");
+        setLeakDesc(misses);
+      }
+      setShowLeakForm(true);
+    }
   }
 
   function handleSaveLeak() {
@@ -113,7 +144,7 @@ function TestRunner({ engine }: { engine: Engine }) {
       courseId: engine.courseId,
       type: leakType,
       status: "COMMITTED",
-      source: "COLD_TEST",
+      source: mode === "PRECISION_CHECK" ? "PRECISION_CHECK" : "COLD_TEST",
       description: leakDesc.trim(),
       createdAt: new Date().toISOString(),
     };
@@ -122,22 +153,45 @@ function TestRunner({ engine }: { engine: Engine }) {
     setShowLeakForm(false);
   }
 
-  function handleDone() { router.push("/"); }
+  function handleDone() {
+    if (result) {
+      const now = new Date().toISOString();
+      const session: TestSession = {
+        id: uuid(),
+        engineId: engine.id,
+        mode,
+        gateAttempt,
+        attempt,
+        result: result,
+        comprehensionAfter: mode === "PRECISION_CHECK" ? null : comprehension,
+        startedAt,
+        recordedAt: now,
+      };
+      recordSession(session);
+    }
+    router.push("/");
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-16">
       {/* Mode Toggle */}
-      {phase === "INPUT" && (
+      {phase === "INPUT" && (hasPrecisionTargets || mode === "PRECISION_CHECK") && (
         <div className="flex justify-end gap-2">
-          {(["FULL_RECALL", "PRECISION_CHECK"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => { setMode(m); setAttempt(""); }}
-              className={`rounded-md px-3 py-1 text-xs font-medium border transition-colors ${mode === m ? "bg-zinc-900 text-white border-zinc-900" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}
-            >
-              {m.replace("_", " ")}
-            </button>
-          ))}
+          {(["FULL_RECALL", "PRECISION_CHECK"] as const).map((m) => {
+            if (m === "PRECISION_CHECK" && !hasPrecisionTargets && mode !== "PRECISION_CHECK") return null;
+            return (
+              <button
+                key={m}
+                onClick={() => {
+                  setMode(m);
+                  setAttempt("");
+                }}
+                className={`rounded-md px-3 py-1 text-xs font-medium border transition-colors ${mode === m ? "bg-zinc-900 text-white border-zinc-900" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}
+              >
+                {m.replace("_", " ")}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -194,13 +248,20 @@ function TestRunner({ engine }: { engine: Engine }) {
             )}
           </div>
 
-          <button
-            onClick={handleReveal}
-            disabled={!canReveal}
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-700 transition-colors"
-          >
-            Reveal engine
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleReveal}
+              disabled={!canReveal}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-700 transition-colors"
+            >
+              Reveal engine
+            </button>
+            {mode === "FULL_RECALL" && usage && (
+              <span className="text-xs text-zinc-400">
+                AI Quota: {usage.mark.limit - usage.mark.used} left today
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -238,7 +299,12 @@ function TestRunner({ engine }: { engine: Engine }) {
                   ) : aiFeedback ? (
                     <div className="space-y-3">
                       <div className="flex items-baseline justify-between">
-                        <span className="text-xs font-bold text-blue-800 uppercase tracking-tight">Examiner Score</span>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-blue-800 uppercase tracking-tight">Examiner Score</span>
+                          {aiFeedback.confidence !== undefined && (
+                            <span className="text-[10px] text-blue-400">Confidence: {aiFeedback.confidence}%</span>
+                          )}
+                        </div>
                         <span className="text-2xl font-black text-blue-900">{aiFeedback.score}<span className="text-xs text-blue-400 font-normal">/10</span></span>
                       </div>
                       <div className="space-y-2">
@@ -402,26 +468,38 @@ function PrecisionBlanks({ engine, value, onChange, disabled }: {
 
   return (
     <div className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
-      {targets.map((t, i) => (
-        <div key={i} className="space-y-1">
-          <label className="block text-xs font-medium text-zinc-500">Blank #{i + 1}</label>
-          <input
-            type="text"
-            value={answers[i]}
-            onChange={(e) => updateAnswer(i, e.target.value)}
-            disabled={disabled}
-            className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
-            placeholder="..."
-          />
+      {targets.length === 0 ? (
+        <div className="text-center py-4">
+          <p className="text-sm text-amber-800 mb-3">No precision targets found.</p>
+          <button
+            onClick={() => onChange("")}
+            className="text-xs font-medium text-zinc-600 underline hover:text-zinc-900"
+          >
+            Switch to Full Recall
+          </button>
         </div>
-      ))}
+      ) : (
+        targets.map((t, i) => (
+          <div key={i} className="space-y-1">
+            <label className="block text-xs font-medium text-zinc-500">Blank #{i + 1}</label>
+            <input
+              type="text"
+              value={answers[i]}
+              onChange={(e) => updateAnswer(i, e.target.value)}
+              disabled={disabled}
+              className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
+              placeholder="..."
+            />
+          </div>
+        ))
+      )}
     </div>
   );
 }
 
 function PrecisionReveal({ engine, value }: { engine: Engine; value: string }) {
   const allText = [...engine.steps, ...engine.satellites].join("\n");
-  const targets = Array.from(allText.matchAll(/\{\{(.+?)\}\}/g)).map(m => m[1]);
+  const targets = Array.from(allText.matchAll(/\{\{(.+?)\}\}/g)).map((m) => m[1]);
   const answers: string[] = value ? JSON.parse(value) : [];
 
   return (
@@ -429,15 +507,27 @@ function PrecisionReveal({ engine, value }: { engine: Engine; value: string }) {
       {targets.map((t, i) => (
         <div key={i} className="rounded border border-zinc-100 p-2 text-xs">
           <div className="flex justify-between items-center mb-1">
-            <span className="text-zinc-400 font-medium uppercase tracking-wider">Target #{i + 1}</span>
-            <Badge variant={answers[i].trim().toLowerCase() === t.trim().toLowerCase() ? "reliable" : "fragile"}>
-              {answers[i].trim().toLowerCase() === t.trim().toLowerCase() ? "MATCH" : "DIFF"}
+            <span className="text-zinc-400 font-medium uppercase tracking-wider">
+              Target #{i + 1}
+            </span>
+            <Badge
+              variant={
+                (answers[i] ?? "").trim().toLowerCase() === t.trim().toLowerCase()
+                  ? "reliable"
+                  : "fragile"
+              }
+            >
+              {(answers[i] ?? "").trim().toLowerCase() === t.trim().toLowerCase()
+                ? "MATCH"
+                : "DIFF"}
             </Badge>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <p className="text-zinc-400 mb-0.5">Yours</p>
-              <p className="text-zinc-700 font-medium">{answers[i] || "(blank)"}</p>
+              <p className="text-zinc-700 font-medium">
+                {answers[i] || "(blank)"}
+              </p>
             </div>
             <div>
               <p className="text-zinc-400 mb-0.5">Model</p>

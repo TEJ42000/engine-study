@@ -19,7 +19,7 @@ import React, {
 import { v4 as uuid } from "uuid";
 import type { CosmosData, Course, Engine, ExamProfile, LeakEntry, MockRun, TestSession } from "@/core/types";
 import { emptyData, buildEnvelope } from "@/core/persistence";
-import { NEW_ENGINE_DEFAULTS, cascadeDeleteCourse, upsertCourse, upsertEngine, recordSession as coreRecord, addLeak as coreAddLeak, addMockRun as coreAddMockRun, markMissDrilled as coreMark } from "@/core/mutations";
+import { NEW_ENGINE_DEFAULTS, cascadeDeleteCourse, cascadeDeleteEngine, upsertCourse, upsertEngine, recordSession as coreRecord, addLeak as coreAddLeak, addMockRun as coreAddMockRun, markMissDrilled as coreMark } from "@/core/mutations";
 import type { CascadeCounts } from "@/core/mutations";
 
 // ─── context shape ───────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ interface StoreCtx {
   updateCourse: (id: string, name: string, profile: ExamProfile) => void;
   deleteCourse: (id: string) => CascadeCounts;
   // F2
-  addEngine: (fields: Omit<Engine, "id" | "createdAt" | "comprehension" | "retrievalReliability" | "passStreak" | "lastTestedAt" | "stacking">) => Engine;
+  addEngine: (fields: Omit<Engine, "id" | "createdAt" | "comprehension" | "retrievalReliability" | "passStreak" | "lastTestedAt">) => Engine;
   updateEngine: (engine: Engine) => void;
   deleteEngine: (id: string) => void;
   // F3 / F4
@@ -59,6 +59,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setRaw] = useState<CosmosData>(emptyData());
   const [loading, setLoading] = useState(true);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dataRef = useRef<CosmosData>(data);
+  dataRef.current = data;
+
+  const flush = useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+      fetch("/api/data", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildEnvelope(dataRef.current)),
+        keepalive: true,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("beforeunload", flush);
+    return () => window.removeEventListener("beforeunload", flush);
+  }, [flush]);
 
   useEffect(() => {
     fetch("/api/data")
@@ -103,7 +123,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // ── F2 engines ──
   const addEngine = useCallback((
-    fields: Omit<Engine, "id" | "createdAt" | "comprehension" | "retrievalReliability" | "passStreak" | "lastTestedAt" | "stacking">
+    fields: Omit<Engine, "id" | "createdAt" | "comprehension" | "retrievalReliability" | "passStreak" | "lastTestedAt">
   ): Engine => {
     const engine: Engine = { ...NEW_ENGINE_DEFAULTS, ...fields, id: uuid(), createdAt: new Date().toISOString() };
     mutate((d) => upsertEngine(d, engine));
@@ -115,7 +135,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [mutate]);
 
   const deleteEngine = useCallback((id: string) => {
-    mutate((d) => ({ ...d, engines: d.engines.filter((e) => e.id !== id) }));
+    mutate((d) => cascadeDeleteEngine(d, id));
   }, [mutate]);
 
   // ── F3 / F4 sessions ──
