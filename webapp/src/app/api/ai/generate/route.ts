@@ -101,12 +101,22 @@ export async function POST(req: Request) {
   const system = buildSystem(courseName, examProfile, existingTitles);
   const prompt = `COURSE ID: ${courseId}\n\nSOURCE MATERIAL:\n${source.slice(0, 12000)}`;
 
-  const raw = await oneShot({
-    modelId: MODELS.generation,
-    system,
-    prompt,
-    maxTokens: 6000,
-  });
+  let raw: string;
+  try {
+    raw = await oneShot({
+      modelId: MODELS.generation,
+      system,
+      prompt,
+      maxTokens: 6000,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "AI request failed";
+    console.error("[AI generate] upstream error:", msg);
+    return Response.json(
+      { error: "AI service unavailable. Please try again later." },
+      { status: 502 },
+    );
+  }
 
   // P1-004: Increment AFTER successful call.
   await incrementAiUsage(session.user.id, "generate");

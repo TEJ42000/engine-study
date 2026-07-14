@@ -22,11 +22,18 @@ ${studyList}
 
 Recommend one concrete drill and keep it under 100 words.`;
 
-  const brief = await oneShot({
-    modelId: MODELS.marking,
-    system: "You are the Cosmos Study Coach. Direct, educational, focused on precision.",
-    prompt
-  });
+  let brief: string;
+  try {
+    brief = await oneShot({
+      modelId: MODELS.marking,
+      system: "You are the Cosmos Study Coach. Direct, educational, focused on precision.",
+      prompt
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "AI request failed";
+    console.error("[AI brief] upstream error:", msg);
+    return Response.json({ brief: "Daily brief unavailable right now." }, { status: 200 });
+  }
 
   return Response.json({ brief });
 }

@@ -12,17 +12,42 @@
 import {
   AugmentLanguageModel,
   resolveAugmentCredentials,
+  type AugmentCredentials,
 } from "@augmentcode/auggie-sdk";
 import { generateText } from "ai";
 
 // Credentials are resolved once at module load; the serverless function
 // is warm-reused within the same instance so this runs infrequently.
-let credentialsPromise: ReturnType<typeof resolveAugmentCredentials> | null =
-  null;
+let credentialsPromise: Promise<AugmentCredentials> | null = null;
 
-async function getCredentials() {
+// The SDK's resolveAugmentCredentials() only reads AUGMENT_API_TOKEN /
+// AUGMENT_API_URL or ~/.augment/session.json. In serverless (Vercel) we
+// carry the session as a single AUGMENT_SESSION_AUTH JSON blob
+// ({ accessToken, tenantURL }), so parse it and pass credentials explicitly.
+async function getCredentials(): Promise<AugmentCredentials> {
   if (!credentialsPromise) {
-    credentialsPromise = resolveAugmentCredentials();
+    const raw = process.env.AUGMENT_SESSION_AUTH;
+    if (raw) {
+      let parsed: { accessToken?: string; tenantURL?: string };
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          "AUGMENT_SESSION_AUTH is set but is not valid JSON; expected { accessToken, tenantURL }",
+        );
+      }
+      if (!parsed.accessToken || !parsed.tenantURL) {
+        throw new Error(
+          "AUGMENT_SESSION_AUTH is missing accessToken or tenantURL",
+        );
+      }
+      credentialsPromise = Promise.resolve({
+        apiKey: parsed.accessToken,
+        apiUrl: parsed.tenantURL,
+      });
+    } else {
+      credentialsPromise = resolveAugmentCredentials();
+    }
   }
   return credentialsPromise;
 }

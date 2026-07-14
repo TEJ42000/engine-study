@@ -91,12 +91,22 @@ export async function POST(req: Request) {
   const system = buildSystem(engine, course);
   const prompt = `GATE ATTEMPT:\n${gateAttempt}\n\nFULL RECALL:\n${attempt}`;
 
-  const raw = await oneShot({
-    modelId: MODELS.marking,
-    system,
-    prompt,
-    maxTokens: 800,
-  });
+  let raw: string;
+  try {
+    raw = await oneShot({
+      modelId: MODELS.marking,
+      system,
+      prompt,
+      maxTokens: 800,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "AI request failed";
+    console.error("[AI mark] upstream error:", msg);
+    return Response.json(
+      { error: "AI marking unavailable. Please try again later." },
+      { status: 502 },
+    );
+  }
 
   // P1-004: Increment AFTER successful call.
   await incrementAiUsage(session.user.id, "mark");
