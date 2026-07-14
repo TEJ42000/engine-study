@@ -132,7 +132,7 @@ export default function DashboardPage() {
                 <p className="text-xs font-medium text-zinc-500 mb-1.5">Study next</p>
                 <div className="space-y-1">
                   {next.slice(0, 5).map((e) => (
-                    <div className="flex items-center gap-1">
+                    <div key={e.id} className="flex items-center gap-1">
                       <Link
                         href={`/engines/${e.id}/edit`}
                         className="text-xs text-zinc-400 hover:text-zinc-600 px-1"
@@ -141,7 +141,6 @@ export default function DashboardPage() {
                         ✎
                       </Link>
                       <Link
-                        key={e.id}
                         href={`/engines/${e.id}/test`}
                         className="flex items-center justify-between rounded-md px-3 py-2 bg-zinc-50 hover:bg-zinc-100 transition-colors flex-1 min-w-0"
                       >
