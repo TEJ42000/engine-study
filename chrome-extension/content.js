@@ -1,9 +1,12 @@
-// D2L Brightspace uses several patterns to serve files:
-// 1. Direct links: href ending in .pdf/.pptx/.docx
-// 2. D2L topic viewer: /d2l/le/lessons/<course>/topics/<id> — the file is
-//    embedded in an <iframe> whose src is a /d2l/lor/... or /d2l/lp/... URL
-// 3. D2L content list: topic rows with data-topic-id attributes and a file icon
-// 4. The current page URL itself may be a streamed file viewer
+// Engine Study content script for D2L Brightspace (brightspace.rug.nl + *.brightspace.com)
+//
+// D2L serves files through a custom viewer — files never appear as plain <a href="...pdf">
+// links. Instead we use D2L's own REST API (same origin, user's session cookie is sent
+// automatically) to resolve the real file download URL for each topic.
+//
+// API used:
+//   GET /d2l/api/le/1.0/<orgUnitId>/content/topics/<topicId>
+//   → returns { Url, ... } where Url is the download URL for the file
 
 function courseNameClean(text) {
   if (!text) return "";
@@ -15,7 +18,6 @@ function getCourseName() {
     '.d2l-navigation-sitetitle-text',
     '.d2l-navigation-sitetitle-link',
     'h1.d2l-page-title',
-    'd2l-navigation-link-text',
     '.d2l-course-name',
   ];
   for (const sel of selectors) {
@@ -25,157 +27,178 @@ function getCourseName() {
   return courseNameClean(document.title);
 }
 
-function isFileUrl(url) {
-  const u = url.toLowerCase();
-  return u.includes('.pdf') || u.includes('.pptx') || u.includes('.docx') ||
-         u.includes('.ppt') || u.includes('.doc');
-}
-
-function isD2LFileRoute(url) {
-  // D2L serves files through /d2l/lor/ or /d2l/lp/ or /content/
-  return url.includes('/d2l/lor/') || url.includes('/d2l/lp/') ||
-         url.includes('/content/') || url.includes('/d2l/common/');
-}
-
-function getFilenameFromUrl(url) {
-  try {
-    const u = new URL(url);
-    const parts = u.pathname.split('/');
-    const last = parts[parts.length - 1];
-    if (last && last.includes('.')) return decodeURIComponent(last);
-  } catch (e) {}
+// Extract orgUnitId and topicId from current URL or page links
+// URL pattern: /d2l/le/lessons/<orgUnitId>/topics/<topicId>
+function parseD2LUrl(url) {
+  const m = url.match(/\/d2l\/le\/lessons\/(\d+)\/topics\/(\d+)/);
+  if (m) return { orgUnitId: m[1], topicId: m[2] };
+  // Also try /d2l/lp/... pattern
+  const m2 = url.match(/\/d2l\/lp\/.*?\/(\d+)\/topics\/(\d+)/);
+  if (m2) return { orgUnitId: m2[1], topicId: m2[2] };
   return null;
 }
 
-function scanDocument(doc, baseLabel) {
-  const files = [];
+// Get orgUnitId from current page URL or from course links on the page
+function getOrgUnitId() {
+  // From current URL
+  const parsed = parseD2LUrl(window.location.href);
+  if (parsed) return parsed.orgUnitId;
 
-  // 1. Direct file links (<a href="...pdf">)
-  doc.querySelectorAll('a[href]').forEach(a => {
-    if (isFileUrl(a.href) && !a.closest('.d2l-navigation, .d2l-footer, .d2l-minibar')) {
-      const name = a.innerText.trim() || a.title || getFilenameFromUrl(a.href) || 'File';
-      files.push({ name, url: a.href });
-    }
-  });
+  // From any topic link on the page
+  const links = document.querySelectorAll('a[href*="/d2l/le/lessons/"]');
+  for (const a of links) {
+    const p = parseD2LUrl(a.href);
+    if (p) return p.orgUnitId;
+  }
 
-  // 2. D2L topic list items — each row may have a data attribute or link
-  //    that points to a viewer page. We extract the viewer URL and let
-  //    fetchFile handle the redirect to the real file.
-  doc.querySelectorAll('[data-topic-id], .d2l-le-lesson-topic').forEach(row => {
-    const link = row.querySelector('a[href]');
-    if (!link) return;
-    const href = link.href;
-    if (!href || href === '#') return;
-    // Only include topic viewer URLs (they serve files)
-    if (href.includes('/d2l/le/lessons/') || href.includes('/d2l/lp/') ||
-        href.includes('/d2l/lor/')) {
-      const name = link.innerText.trim() || link.title || 'Topic';
-      files.push({ name, url: href, isD2LTopic: true });
-    }
-  });
-
-  // 3. Embedded iframes (D2L wraps files in iframes)
-  doc.querySelectorAll('iframe[src]').forEach(iframe => {
-    const src = iframe.src;
-    if (isFileUrl(src) || isD2LFileRoute(src)) {
-      const name = getFilenameFromUrl(src) || iframe.title || 'Embedded file';
-      files.push({ name, url: src });
-    }
-    // Try to scan same-origin iframe content
-    try {
-      const iDoc = iframe.contentDocument;
-      if (iDoc) scanDocument(iDoc, name).forEach(f => files.push(f));
-    } catch (e) { /* cross-origin, skip */ }
-  });
-
-  // 4. Object/embed tags (some D2L versions use these for PDFs)
-  doc.querySelectorAll('object[data], embed[src]').forEach(el => {
-    const src = el.data || el.src;
-    if (src && isFileUrl(src)) {
-      files.push({ name: getFilenameFromUrl(src) || 'Embedded', url: src });
-    }
-  });
-
-  return files;
+  // From URL path like /d2l/home/470363
+  const m = window.location.pathname.match(/\/(\d{5,})/);
+  return m ? m[1] : null;
 }
 
-function findCourseInfo() {
+// Collect all topic IDs visible in the left-hand nav sidebar
+function getTopicIds() {
+  const ids = new Set();
+
+  // Current page topic
+  const current = parseD2LUrl(window.location.href);
+  if (current) ids.add(current.topicId);
+
+  // All topic links in the sidebar/content list
+  document.querySelectorAll('a[href*="/topics/"]').forEach(a => {
+    const p = parseD2LUrl(a.href);
+    if (p) ids.add(p.topicId);
+  });
+
+  // d2l-le-lesson-topic elements (web components)
+  document.querySelectorAll('[data-topic-id]').forEach(el => {
+    const id = el.getAttribute('data-topic-id');
+    if (id) ids.add(id);
+  });
+
+  return [...ids];
+}
+
+// Call D2L's content API to get topic metadata (including the file URL)
+async function getTopicInfo(orgUnitId, topicId) {
+  try {
+    const resp = await fetch(
+      `/d2l/api/le/1.0/${orgUnitId}/content/topics/${topicId}`,
+      { credentials: 'include' }
+    );
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+// Scan the page and return all detectable files via D2L API
+async function findCourseInfoAsync() {
   const courseName = getCourseName();
-  const allFiles = scanDocument(document, '');
+  const orgUnitId = getOrgUnitId();
+  const files = [];
+
+  if (orgUnitId) {
+    const topicIds = getTopicIds();
+
+    // Also try getting the full content structure
+    try {
+      const structResp = await fetch(
+        `/d2l/api/le/1.0/${orgUnitId}/content/root/`,
+        { credentials: 'include' }
+      );
+      if (structResp.ok) {
+        const modules = await structResp.json();
+        // Recursively collect topic IDs from modules
+        function collectTopics(items) {
+          for (const item of (items || [])) {
+            if (item.Type === 1 && item.Id) topicIds.push(String(item.Id)); // Type 1 = topic
+            if (item.Modules) collectTopics(item.Modules);
+            if (item.Structure) collectTopics(item.Structure);
+          }
+        }
+        collectTopics(Array.isArray(modules) ? modules : [modules]);
+      }
+    } catch (e) {}
+
+    // Resolve each topic to a file URL
+    const uniqueIds = [...new Set(topicIds)];
+    await Promise.all(uniqueIds.map(async (topicId) => {
+      const info = await getTopicInfo(orgUnitId, topicId);
+      if (!info) return;
+
+      const url = info.Url || info.url;
+      const title = info.Title || info.title || `Topic ${topicId}`;
+      const typeId = info.TypeIdentifier || info.typeIdentifier || '';
+
+      // TypeIdentifier: 'File' means it's a downloadable file
+      if (!url) return;
+      const urlLower = url.toLowerCase();
+      const isFile = urlLower.includes('.pdf') || urlLower.includes('.pptx') ||
+                     urlLower.includes('.docx') || urlLower.includes('.ppt') ||
+                     urlLower.includes('.doc') || typeId === 'File';
+      if (!isFile) return;
+
+      // Make absolute URL
+      const absUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`;
+      files.push({ name: title, url: absUrl });
+    }));
+  }
+
+  // Fallback: plain <a> file links (for simpler Brightspace setups)
+  if (files.length === 0) {
+    document.querySelectorAll('a[href]').forEach(a => {
+      const href = a.href.toLowerCase();
+      if ((href.includes('.pdf') || href.includes('.pptx') || href.includes('.docx')) &&
+          !a.closest('.d2l-navigation, .d2l-footer, .d2l-minibar')) {
+        files.push({
+          name: a.innerText.trim() || a.href.split('/').pop(),
+          url: a.href
+        });
+      }
+    });
+  }
 
   // Deduplicate by URL
   const seen = new Set();
-  const files = allFiles.filter(f => {
-    const key = f.url;
-    if (seen.has(key)) return false;
-    seen.add(key);
+  const deduped = files.filter(f => {
+    if (seen.has(f.url)) return false;
+    seen.add(f.url);
     return true;
   });
 
-  return { courseName, files };
-}
-
-async function fetchFileAsBase64(url) {
-  // For D2L topic viewer pages, follow the redirect chain to get the real file
-  const resp = await fetch(url, { credentials: 'include', redirect: 'follow' });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-
-  const contentType = resp.headers.get('content-type') || '';
-
-  // If D2L returned HTML (viewer page), try to extract the real file URL from it
-  if (contentType.includes('text/html')) {
-    const html = await resp.text();
-    // Look for the actual file URL in the HTML
-    const patterns = [
-      /["'](https?:\/\/[^"']+\.(?:pdf|pptx|docx|ppt|doc))[?#"']/gi,
-      /src=["'](\/[^"']+\.(?:pdf|pptx|docx|ppt|doc))[?#"']/gi,
-      /href=["'](\/[^"']+\.(?:pdf|pptx|docx|ppt|doc))[?#"']/gi,
-    ];
-    for (const pattern of patterns) {
-      const match = pattern.exec(html);
-      if (match) {
-        const fileUrl = match[1].startsWith('http')
-          ? match[1]
-          : new URL(match[1], url).href;
-        const fileResp = await fetch(fileUrl, { credentials: 'include' });
-        if (fileResp.ok) {
-          return arrayBufferToBase64(await fileResp.arrayBuffer());
-        }
-      }
-    }
-    throw new Error('Could not find file in viewer page');
-  }
-
-  return arrayBufferToBase64(await resp.arrayBuffer());
+  return { courseName, files: deduped };
 }
 
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  // Process in chunks to avoid call stack overflow on large files
   const chunkSize = 8192;
   for (let i = 0; i < bytes.byteLength; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
   }
   return btoa(binary);
 }
 
+async function fetchFileAsBase64(url) {
+  const resp = await fetch(url, { credentials: 'include', redirect: 'follow' });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return arrayBufferToBase64(await resp.arrayBuffer());
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "scan") {
-    try {
-      const info = findCourseInfo();
-      sendResponse(info);
-    } catch (e) {
-      sendResponse({ courseName: '', files: [], error: e.message });
-    }
-    return false;
+    findCourseInfoAsync()
+      .then(info => sendResponse(info))
+      .catch(e => sendResponse({ courseName: '', files: [], error: e.message }));
+    return true; // async
   }
 
   if (request.action === "fetchFile") {
     fetchFileAsBase64(request.url)
       .then(base64 => sendResponse({ ok: true, base64 }))
       .catch(err => sendResponse({ ok: false, error: err.message }));
-    return true; // keep channel open for async response
+    return true;
   }
 });
