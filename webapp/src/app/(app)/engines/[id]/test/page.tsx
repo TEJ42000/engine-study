@@ -55,7 +55,7 @@ function TestRunner({ engine }: { engine: Engine }) {
   const [startedAt] = useState(() => new Date().toISOString());
 
   // Usage tracking (P4-002)
-  const [usage, setUsage] = useState<{ mark: { used: number, limit: number } } | null>(null);
+  const [usage, setUsage] = useState<{ mark: { used: number, limit: number, isPro?: boolean }, isPro?: boolean } | null>(null);
 
   useEffect(() => {
     fetch("/api/ai/usage").then(r => r.json()).then(setUsage).catch(() => {});
@@ -127,16 +127,18 @@ function TestRunner({ engine }: { engine: Engine }) {
       const answers = attempt ? JSON.parse(attempt) : [];
       return (answers[i] ?? "").trim().toLowerCase() !== t.trim().toLowerCase();
     }))) {
-      const answers = attempt ? JSON.parse(attempt) : [];
-      const misses = targets
-        .map((t, i) => ({ target: t, answer: answers[i] ?? "" }))
-        .filter(x => x.target.trim().toLowerCase() !== x.answer.trim().toLowerCase())
-        .map(x => `Missed: "${x.target}" (wrote: "${x.answer || "(blank)"}")`)
-        .join("\n");
+      if (mode === "PRECISION_CHECK") {
+        const answers = attempt ? JSON.parse(attempt) : [];
+        const misses = targets
+          .map((t, i) => ({ target: t, answer: answers[i] ?? "" }))
+          .filter(x => x.target.trim().toLowerCase() !== x.answer.trim().toLowerCase())
+          .map(x => `Missed: "${x.target}" (wrote: "${x.answer || "(blank)"}")`)
+          .join("\n");
 
-      if (misses) {
-        setLeakType("PRECISION");
-        setLeakDesc(misses);
+        if (misses) {
+          setLeakType("PRECISION");
+          setLeakDesc(misses);
+        }
       }
       setShowLeakForm(true);
     }
@@ -264,7 +266,7 @@ function TestRunner({ engine }: { engine: Engine }) {
             </button>
             {mode === "FULL_RECALL" && usage && (
               <span className="text-xs text-zinc-400">
-                AI Quota: {usage.mark.limit - usage.mark.used} left today
+                AI Quota: {usage.isPro ? "Unlimited" : `${usage.mark.limit - usage.mark.used} left today`}
               </span>
             )}
           </div>

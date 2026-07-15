@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Engine Study - Brightspace Pull",
+  "version": "1.0",
+  "description": "Automatically detect and upload course materials from Brightspace to Engine Study.",
+  "permissions": [
+    "activeTab",
+    "downloads",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.brightspace.com/*",
+    "https://*.augmentusercontent.com/*",
+    "https://webapp-theta-beige.vercel.app/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.brightspace.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}

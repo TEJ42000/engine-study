@@ -26,3 +26,16 @@ CREATE TABLE IF NOT EXISTS ai_usage (
 -- keep an explicit index in case the query planner needs guidance).
 CREATE INDEX IF NOT EXISTS idx_user_data_user_id ON user_data (user_id);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_user_date ON ai_usage (user_id, date);
+
+-- User subscriptions.
+CREATE TABLE IF NOT EXISTS subscriptions (
+  user_id           TEXT        PRIMARY KEY REFERENCES user_data(user_id),
+  stripe_customer_id TEXT        UNIQUE,
+  stripe_price_id    TEXT,
+  status            TEXT,
+  period_end        TIMESTAMPTZ,
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions (user_id);
+

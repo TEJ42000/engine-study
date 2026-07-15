@@ -102,3 +102,49 @@ export async function incrementAiUsage(
         `;
   return rows[0].count as number;
 }
+
+export async function getSubscription(userId: string) {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT * FROM subscriptions WHERE user_id = ${userId}
+  `;
+  if (rows.length === 0) return null;
+  return rows[0];
+}
+
+export async function getSubscriptionByCustomerId(customerId: string) {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT * FROM subscriptions WHERE stripe_customer_id = ${customerId}
+  `;
+  if (rows.length === 0) return null;
+  return rows[0];
+}
+
+
+export async function upsertSubscription(userId: string, fields: any) {
+  const sql = getSql();
+  const keys = Object.keys(fields);
+  const values = Object.values(fields);
+
+  // Hand-rolled upsert for simple fields
+  await sql`
+    INSERT INTO subscriptions (user_id, stripe_customer_id, stripe_price_id, status, period_end, updated_at)
+    VALUES (
+      ${userId},
+      ${fields.stripe_customer_id},
+      ${fields.stripe_price_id},
+      ${fields.status},
+      ${fields.period_end},
+      NOW()
+    )
+    ON CONFLICT (user_id)
+    DO UPDATE SET
+      stripe_customer_id = EXCLUDED.stripe_customer_id,
+      stripe_price_id = EXCLUDED.stripe_price_id,
+      status = EXCLUDED.status,
+      period_end = EXCLUDED.period_end,
+      updated_at = NOW()
+  `;
+}
+

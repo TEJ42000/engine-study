@@ -46,7 +46,7 @@ export default function EditCoursePage({ params }: { params: Promise<{ id: strin
       .map((l) => l.trim())
       .filter(Boolean);
     updateCourse(id, name.trim(), { ...profile, modes } as ExamProfile);
-    router.push("/");
+    router.push(`/courses/${id}`);
   }
 
   return (
@@ -102,7 +102,7 @@ export default function EditCoursePage({ params }: { params: Promise<{ id: strin
           <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors">
             Save changes
           </button>
-          <button type="button" onClick={() => router.push("/")} className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
+          <button type="button" onClick={() => router.push(`/courses/${id}`)} className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
             Cancel
           </button>
         </div>

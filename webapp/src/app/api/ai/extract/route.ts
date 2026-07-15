@@ -1,10 +1,43 @@
 import { auth } from "@/lib/auth";
 import { oneShot, MODELS } from "@/lib/ai";
-import { incrementAiUsage, getAiUsage } from "@/lib/db";
+import { incrementAiUsage, getAiUsage, getSubscription } from "@/lib/db";
+import JSZip from "jszip";
 
 const DAILY_EXTRACT_LIMIT = 10;
 
 export const maxDuration = 60;
+
+/**
+ * PPTX text extraction using jszip.
+ * Scans ppt/slides/slide*.xml for <a:t> nodes.
+ */
+async function extractPptxText(buffer: Buffer): Promise<string> {
+  const zip = await JSZip.loadAsync(buffer);
+  const slideFiles = Object.keys(zip.files).filter((name) =>
+    name.startsWith("ppt/slides/slide") && name.endsWith(".xml")
+  );
+
+  // Sort slides numerically
+  slideFiles.sort((a, b) => {
+    const na = parseInt(a.match(/slide(\d+)\.xml/)?.[1] ?? "0");
+    const nb = parseInt(b.match(/slide(\d+)\.xml/)?.[1] ?? "0");
+    return na - nb;
+  });
+
+  let text = "";
+  for (const slideFile of slideFiles) {
+    const xml = await zip.file(slideFile)?.async("text");
+    if (xml) {
+      // Very simple extraction of <a:t>...</a:t> content
+      const matches = xml.matchAll(/<a:t>(.*?)<\/a:t>/g);
+      for (const match of matches) {
+        text += match[1] + " ";
+      }
+      text += "\n";
+    }
+  }
+  return text.trim();
+}
 
 async function extractText(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -12,11 +45,19 @@ async function extractText(file: File): Promise<string> {
   if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
     // Dynamic import; CJS module may land as default or as the module itself
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfMod = await import("pdf-parse") as any;
+    const pdfMod = (await import("pdf-parse")) as any;
     const pdfParse: (b: Buffer) => Promise<{ text: string }> =
       pdfMod.default ?? pdfMod;
     const data = await pdfParse(buffer);
     return data.text;
+  }
+
+  if (
+    file.type ===
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    file.name.endsWith(".pptx")
+  ) {
+    return extractPptxText(buffer);
   }
 
   if (
@@ -55,11 +96,17 @@ Rules:
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user?.id) return new Response("Unauthorized", { status: 401 });
+
+  if (!session?.user?.id) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const used = await getAiUsage(session.user.id, "generate");
-  if (used >= DAILY_EXTRACT_LIMIT) {
-    return Response.json({ error: "Daily AI quota reached. Try again tomorrow." }, { status: 429 });
+  const sub = await getSubscription(session.user.id);
+  const isPro = sub?.status === "active";
+
+  if (!isPro && used >= DAILY_EXTRACT_LIMIT) {
+    return Response.json({ error: "Daily AI quota reached. Upgrade to Pro for unlimited usage." }, { status: 429 });
   }
 
   const formData = await req.formData();

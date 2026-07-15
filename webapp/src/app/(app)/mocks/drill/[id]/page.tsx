@@ -25,7 +25,7 @@ export default function DrillPage({ params }: { params: Promise<{ id: string }> 
 
 function ActiveDrill({ drill }: { drill: MockDrill }) {
   const router = useRouter();
-  const { data, updateMockDrill, recordSession, addLeak } = useStore();
+  const { data, updateMockDrill, recordSession, addLeak, updateEngine } = useStore();
   const [current, setCurrent] = useState(0);
   const [attempts, setAttempts] = useState<string[]>(() => drill.items.map((i) => i.attempt));
   const [elapsed, setElapsed] = useState<number[]>(() => drill.items.map((i) => i.elapsedSeconds));
@@ -142,10 +142,18 @@ function ActiveDrill({ drill }: { drill: MockDrill }) {
     setLeakForms((prev) => prev.map((v, i) => (i === idx ? false : v)));
   }
 
+  function handleComprehension(idx: number, c: Comprehension) {
+    setCompreh((prev) => prev.map((v, i) => i === idx ? c : v));
+    const engine = data.engines.find((e) => e.id === drill.items[idx].engineId);
+    if (engine) {
+      updateEngine({ ...engine, comprehension: c });
+    }
+  }
+
   function handleComplete() {
     updateMockDrill({ ...drill, status: "COMPLETED", completedAt: new Date().toISOString() });
-    // Redirect to same page — it will render CompletedView
-    router.refresh();
+    // Deterministic scroll to top for the summary
+    window.scrollTo(0, 0);
   }
 
   function handleAbandon() {
@@ -273,7 +281,7 @@ function ActiveDrill({ drill }: { drill: MockDrill }) {
               <div className="flex items-center gap-3">
                 <p className="text-xs text-zinc-500">Comprehension:</p>
                 {(["SHAKY", "SOLID"] as const).map((c) => (
-                  <button key={c} onClick={() => setCompreh((prev) => prev.map((v, i) => i === idx ? c : v))}
+                  <button key={c} onClick={() => handleComprehension(idx, c)}
                     className={`rounded px-3 py-1 text-xs font-medium border transition-colors ${compreh[idx] === c ? "bg-zinc-900 text-white border-zinc-900" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}>
                     {c}
                   </button>

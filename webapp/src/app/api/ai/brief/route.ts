@@ -8,7 +8,7 @@
  * Response: { brief: string } — one concrete drill, ≤60 words, no flattery.
  */
 import { auth } from "@/lib/auth";
-import { loadUserData, getAiUsage, incrementAiUsage } from "@/lib/db";
+import { loadUserData, getAiUsage, incrementAiUsage, getSubscription } from "@/lib/db";
 import { studyNext } from "@/core/selectors";
 import { oneShot, MODELS } from "@/lib/ai";
 
@@ -31,14 +31,12 @@ export async function GET() {
 
   // Rate limit: share the mark counter (same model, same cost tier).
   const currentUsage = await getAiUsage(session.user.id, "mark");
-  if (currentUsage >= DAILY_BRIEF_LIMIT) {
-    return Response.json({ brief: "Daily AI limit reached. Try again tomorrow." }, { status: 429 });
-  }
+  const sub = await getSubscription(session.user.id);
+  const isPro = sub?.status === "active";
 
-  // Increment BEFORE the call to avoid race conditions.
-  // We'll decrement if it fails if we want to be exact, but for a soft daily cap,
-  // increment-before is safer for the provider.
-  await incrementAiUsage(session.user.id, "mark");
+  if (!isPro && currentUsage >= DAILY_BRIEF_LIMIT) {
+    return Response.json({ brief: "Daily AI limit reached. Upgrade to Pro for unlimited drills." }, { status: 429 });
+  }
 
   const studyList = atRisk
     .map(e => `- "${e.title.replace(/"/g, "'")}" (${e.comprehension}/${e.retrievalReliability})`)

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { width: 300px; padding: 10px; font-family: sans-serif; }
+    .file-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 12px; }
+    .file-item input { margin-right: 10px; }
+    button { width: 100%; margin-top: 10px; padding: 8px; cursor: pointer; }
+    #status { margin-top: 10px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+    <span style="font-size: 20px;">◈</span>
+    <div>
+      <h3 style="margin: 0; font-size: 14px;">Engine Study</h3>
+      <h4 id="course-title" style="margin: 0; font-size: 11px; color: #999; font-weight: normal;">Scanning...</h4>
+    </div>
+  </div>
+  <div id="file-list">Scanning...</div>
+  <button id="upload-btn" disabled>Sync Selection</button>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

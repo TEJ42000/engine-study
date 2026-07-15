@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "functions": {
+    "src/app/api/ai/**/*": {
+      "maxDuration": 60
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Credentials", "value": "true" }
+      ]
+    }
+  ]
+}

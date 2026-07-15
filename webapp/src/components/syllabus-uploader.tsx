@@ -26,16 +26,29 @@ export function SyllabusUploader({ onExtracted }: Props) {
   const [errorMsg, setErrorMsg] = useState("");
   const [fileName, setFileName] = useState("");
 
-  const upload = useCallback(async (file: File) => {
-    setFileName(file.name);
+  const upload = useCallback(async (files: File[]) => {
+    if (files.length === 0) return;
+    setFileName(files.length === 1 ? files[0].name : `${files.length} files`);
     setPhase("uploading");
     setErrorMsg("");
 
     const form = new FormData();
-    form.append("file", file);
+    files.forEach((f) => form.append("files", f));
 
     try {
-      const res = await fetch("/api/ai/extract", { method: "POST", body: form });
+      const endpoint = files.length > 1 ? "/api/ai/extract-batch" : "/api/ai/extract";
+      // If single file, we use "file" key for backward compat with single endpoint
+      // but I should probably just use "files" everywhere for the batch endpoint.
+      // Actually, I'll just use the batch endpoint if > 1, or the single if 1.
+      // But the single endpoint expects "file" not "files".
+      const res = await fetch(files.length > 1 ? "/api/ai/extract-batch" : "/api/ai/extract", {
+        method: "POST",
+        body: files.length === 1 ? (() => {
+          const f = new FormData();
+          f.append("file", files[0]);
+          return f;
+        })() : form
+      });
       const body = await res.json();
       if (!res.ok) {
         setErrorMsg(body.error ?? "Extraction failed. Please try again.");
@@ -50,15 +63,15 @@ export function SyllabusUploader({ onExtracted }: Props) {
     }
   }, [onExtracted]);
 
-  function handleFile(file: File | null | undefined) {
-    if (!file) return;
-    upload(file);
+  function handleFiles(files: FileList | null | undefined) {
+    if (!files || files.length === 0) return;
+    upload(Array.from(files));
   }
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setPhase("idle");
-    handleFile(e.dataTransfer.files[0]);
+    handleFiles(e.dataTransfer.files);
   }
 
   const isUploading = phase === "uploading";
@@ -89,15 +102,15 @@ export function SyllabusUploader({ onExtracted }: Props) {
         {/* Label */}
         {phase === "idle" && (
           <div>
-            <p className="text-sm font-medium text-zinc-700">Drop your syllabus here</p>
-            <p className="text-xs text-zinc-400 mt-0.5">PDF, DOCX, or TXT · max 10 MB</p>
+            <p className="text-sm font-medium text-zinc-700">Drop your materials here</p>
+            <p className="text-xs text-zinc-400 mt-0.5">PDF, PPTX, DOCX, or TXT · max 10 MB each</p>
           </div>
         )}
         {phase === "dragging" && <p className="text-sm font-medium text-zinc-700">Release to upload</p>}
         {phase === "uploading" && (
           <div>
             <p className="text-sm font-medium text-zinc-700">Analysing <span className="font-mono text-xs">{fileName}</span>…</p>
-            <p className="text-xs text-zinc-400 mt-0.5">AI is reading your document</p>
+            <p className="text-xs text-zinc-400 mt-0.5">AI is reading your materials</p>
           </div>
         )}
         {phase === "done" && (
@@ -108,7 +121,7 @@ export function SyllabusUploader({ onExtracted }: Props) {
               onClick={(e) => { e.stopPropagation(); setPhase("idle"); inputRef.current?.click(); }}
               className="mt-1 text-xs text-emerald-600 underline underline-offset-2"
             >
-              Upload a different file
+              Upload different materials
             </button>
           </div>
         )}
@@ -128,9 +141,10 @@ export function SyllabusUploader({ onExtracted }: Props) {
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+          multiple
+          accept=".pdf,.pptx,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
           className="hidden"
-          onChange={(e) => handleFile(e.target.files?.[0])}
+          onChange={(e) => handleFiles(e.target.files)}
         />
       </div>
 
