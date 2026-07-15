@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Engine Study - Brightspace Pull",
-  "version": "1.0",
-  "description": "Automatically detect and upload course materials from Brightspace to Engine Study.",
+  "name": "Engine Study - Brightspace Sync",
+  "version": "1.1",
+  "description": "Detect and upload course materials from Brightspace to Engine Study.",
   "permissions": [
     "activeTab",
-    "downloads",
-    "storage"
+    "storage",
+    "scripting"
   ],
   "host_permissions": [
     "https://*.brightspace.com/*",

@@ -2,6 +2,7 @@ import { neon } from "@neondatabase/serverless";
 import type { NeonQueryFunction } from "@neondatabase/serverless";
 import type { CosmosData } from "@/core/types";
 import { buildEnvelope, emptyData } from "@/core/persistence";
+import crypto from "node:crypto";
 
 // Lazily initialised so the module can be imported at build time without
 // DATABASE_URL being present. The function throws at runtime if the env var
@@ -146,5 +147,29 @@ export async function upsertSubscription(userId: string, fields: any) {
       period_end = EXCLUDED.period_end,
       updated_at = NOW()
   `;
+}
+
+/** Create or refresh a 24-hour extension token for a user. Returns the token string. */
+export async function upsertExtensionToken(userId: string): Promise<string> {
+  const sql = getSql();
+  const token = crypto.randomUUID();
+  await sql`
+    INSERT INTO extension_tokens (user_id, token, expires_at)
+    VALUES (${userId}, ${token}, NOW() + INTERVAL '24 hours')
+    ON CONFLICT (user_id)
+    DO UPDATE SET token = ${token}, expires_at = NOW() + INTERVAL '24 hours'
+  `;
+  return token;
+}
+
+/** Validate an extension token. Returns userId if valid, null otherwise. */
+export async function validateExtensionToken(token: string): Promise<string | null> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT user_id FROM extension_tokens
+    WHERE token = ${token} AND expires_at > NOW()
+  `;
+  if (rows.length === 0) return null;
+  return rows[0].user_id as string;
 }
 

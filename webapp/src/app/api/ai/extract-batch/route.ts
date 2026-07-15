@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { oneShot, MODELS } from "@/lib/ai";
-import { incrementAiUsage, getAiUsage, getSubscription } from "@/lib/db";
+import { incrementAiUsage, getAiUsage, getSubscription, validateExtensionToken } from "@/lib/db";
 import JSZip from "jszip";
 
 const DAILY_EXTRACT_LIMIT = 10;
@@ -91,10 +91,18 @@ Rules:
 export async function POST(req: Request) {
   const session = await auth();
 
-  if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  let userId = session?.user?.id ?? null;
+  if (!userId) {
+    const headerToken = req.headers.get("X-Extension-Token");
+    if (headerToken) {
+      userId = await validateExtensionToken(headerToken);
+    }
+  }
 
-  const used = await getAiUsage(session.user.id, "generate");
-  const sub = await getSubscription(session.user.id);
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const used = await getAiUsage(userId, "generate");
+  const sub = await getSubscription(userId);
   const isPro = sub?.status === "active";
 
   if (!isPro && used >= DAILY_EXTRACT_LIMIT) {
@@ -131,7 +139,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "AI service unavailable." }, { status: 502 });
   }
 
-  await incrementAiUsage(session.user.id, "generate");
+  await incrementAiUsage(userId, "generate");
 
   try {
     const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();

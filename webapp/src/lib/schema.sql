@@ -39,3 +39,12 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions (user_id);
 
+-- Short-lived tokens for the Chrome extension to authenticate without cookies.
+CREATE TABLE IF NOT EXISTS extension_tokens (
+  user_id    TEXT        PRIMARY KEY REFERENCES user_data(user_id) ON DELETE CASCADE,
+  token      TEXT        NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_extension_tokens_token ON extension_tokens (token);
+
+
