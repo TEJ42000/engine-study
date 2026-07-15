@@ -6,15 +6,22 @@
   "permissions": [
     "activeTab",
     "storage",
-    "scripting"
+    "scripting",
+    "cookies"
   ],
   "host_permissions": [
     "https://*.brightspace.com/*",
     "https://*.augmentusercontent.com/*",
     "https://webapp-theta-beige.vercel.app/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html"
+  },
+  "externally_connectable": {
+    "matches": ["https://webapp-theta-beige.vercel.app/*"]
   },
   "content_scripts": [
     {
