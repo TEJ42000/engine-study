@@ -283,6 +283,40 @@ function LoadErrorView() {
 }
 
 // ─── Dashboard ──────────────────────────────────────────────────────────────
+function ExtensionHelper() {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-zinc-900 flex items-center justify-center text-xl shadow-inner text-white">🧩</div>
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-900">Sync with Brightspace</h3>
+          <p className="text-xs text-zinc-500">Master your law courses directly from the source.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-2 text-xs text-zinc-600">
+        <div className="space-y-1">
+          <p className="font-bold text-zinc-900">1. Install</p>
+          <p>Add the Engine Study extension to Chrome.</p>
+        </div>
+        <div className="space-y-1">
+          <p className="font-bold text-zinc-900">2. Browse</p>
+          <p>Navigate to your legal syllabus or slides in Brightspace.</p>
+        </div>
+        <div className="space-y-1">
+          <p className="font-bold text-zinc-900">3. Recall</p>
+          <p>Click "Sync Engine" to auto-extract the doctrinal structure.</p>
+        </div>
+      </div>
+      <a 
+        href="#" 
+        className="inline-block text-xs font-medium text-zinc-500 underline hover:text-zinc-900 transition-colors"
+      >
+        Download Chrome Extension (v1.0.4) →
+      </a>
+    </div>
+  );
+}
+
 function DashboardContent() {
   const { data, loading, loadError, isPro, deleteCourse } = useStore();
   const { toast } = useToast();
@@ -318,15 +352,19 @@ function DashboardContent() {
 
   if (data.courses.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-5 py-32 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center text-3xl">◈</div>
-        <div>
-          <p className="text-base font-semibold text-zinc-900">No courses yet</p>
-          <p className="text-sm text-zinc-500 mt-1">Add your first course to start building revision engines.</p>
+      <div className="max-w-2xl mx-auto space-y-12 py-12">
+        <div className="flex flex-col items-center justify-center gap-5 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center text-3xl">◈</div>
+          <div>
+            <p className="text-base font-semibold text-zinc-900">No courses yet</p>
+            <p className="text-sm text-zinc-500 mt-1">Add your first course to start building revision engines.</p>
+          </div>
+          <Link href="/courses/new" className="rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 transition-colors">
+            Add your first course
+          </Link>
         </div>
-        <Link href="/courses/new" className="rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 transition-colors">
-          Add your first course
-        </Link>
+
+        <ExtensionHelper />
       </div>
     );
   }

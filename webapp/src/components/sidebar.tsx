@@ -4,6 +4,9 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
 import type { Session } from "next-auth";
+import { SyncStatus } from "./sync-status";
+
+import { useStore } from "@/lib/store";
 
 const NAV = [
   { href: "/dashboard", icon: "◈", label: "Dashboard" },
@@ -15,6 +18,7 @@ const NAV = [
 export function Sidebar({ session }: { session: Session }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { isPro } = useStore();
 
   return (
     <aside
@@ -60,12 +64,18 @@ export function Sidebar({ session }: { session: Session }) {
         })}
       </nav>
 
-      {/* Footer — user + sign out */}
-      <div className="border-t border-zinc-100 p-3 space-y-2">
+      {/* Footer — user + sync + sign out */}
+      <div className="border-t border-zinc-100 p-3 space-y-3">
+        <SyncStatus collapsed={collapsed} />
         {!collapsed && (
-          <p className="text-[11px] text-zinc-400 truncate px-1">
-            {session.user?.email}
-          </p>
+          <div className="flex items-center justify-between px-1">
+            <p className="text-[11px] text-zinc-400 truncate max-w-[120px]">
+              {session.user?.email}
+            </p>
+            {isPro && (
+              <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1 rounded uppercase tracking-tighter">Pro</span>
+            )}
+          </div>
         )}
         <button
           onClick={() => signOut({ callbackUrl: "/" })}
