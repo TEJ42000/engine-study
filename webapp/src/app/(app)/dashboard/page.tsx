@@ -3,8 +3,10 @@ import { useStore } from "@/lib/store";
 import { studyNext, maturityGrid, computeLeakProfile } from "@/core/selectors";
 import { deriveDrillEmphasisHint } from "@/core/mutations";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/components/toast";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 // ─── Daily Brief ────────────────────────────────────────────────────────────
 function DailyBrief() {
@@ -89,12 +91,230 @@ function Skeleton() {
   );
 }
 
-// ─── Dashboard ──────────────────────────────────────────────────────────────
-export default function DashboardPage() {
-  const { data, loading, deleteCourse } = useStore();
+// ─── Course Section ──────────────────────────────────────────────────────────
+function CourseSection({
+  course,
+  engines,
+  testSessions,
+  leaks,
+  mockRuns,
+  mockDrills,
+  deleteCourse
+}: {
+  course: any;
+  engines: any[];
+  testSessions: any[];
+  leaks: any[];
+  mockRuns: any[];
+  mockDrills: any[];
+  deleteCourse: (id: string) => void;
+}) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const {
+    sessionCount, leakCount, mockRunCount, mockDrillCount,
+    next, grid, leakProfile, hint,
+    reliable, fragile, untested, total, mastery
+  } = useMemo(() => {
+    const engineIds = new Set(engines.map((e) => e.id));
+    const sCount = testSessions.length;
+    const lCount = leaks.length;
+    const mrCount = mockRuns.length;
+    const mdCount = mockDrills.length;
+
+    const nxt = studyNext(engines, mockRuns);
+    const grd = maturityGrid(engines);
+    const lp = computeLeakProfile(leaks, course.id, new Date().toISOString());
+    const hnt = deriveDrillEmphasisHint(course.examProfile);
+
+    const rel = (grd.SHAKY.RELIABLE + grd.SOLID.RELIABLE);
+    const fra = (grd.SHAKY.FRAGILE  + grd.SOLID.FRAGILE);
+    const unt = (grd.SHAKY.UNTESTED  + grd.SOLID.UNTESTED);
+    const tot = grd.total;
+    const mas = tot > 0 ? Math.round((rel / tot) * 100) : 0;
+
+    return {
+      sessionCount: sCount,
+      leakCount: lCount,
+      mockRunCount: mrCount,
+      mockDrillCount: mdCount,
+      next: nxt,
+      grid: grd,
+      leakProfile: lp,
+      hint: hnt,
+      reliable: rel,
+      fragile: fra,
+      untested: unt,
+      total: tot,
+      mastery: mas
+    };
+  }, [course, engines, testSessions, leaks, mockRuns, mockDrills]);
+
+  return (
+    <section key={course.id} className="rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+      {/* Course header */}
+      <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-4 border-b border-zinc-100">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link href={`/courses/${course.id}`} className="font-semibold text-zinc-900 hover:text-zinc-600 transition-colors truncate">
+              {course.name}
+            </Link>
+            <Link href={`/courses/${course.id}/edit`} className="text-zinc-300 hover:text-zinc-500 transition-colors" title="Edit">✎</Link>
+            <button onClick={() => setDeletingId(course.id)} className="text-zinc-300 hover:text-red-500 transition-colors" title="Delete">×</button>
+          </div>
+          <p className="text-xs text-zinc-400 mt-0.5">Focus: {hint}</p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <Link href={`/courses/${course.id}/generate`}
+            className="rounded-md border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors">
+            AI Generate
+          </Link>
+          <Link href={`/engines/new/edit?courseId=${course.id}`}
+            className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
+            + Engine
+          </Link>
+        </div>
+      </div>
+
+      <div className="px-5 py-4 space-y-5">
+        {/* Delete confirmation */}
+        {deletingId === course.id && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+            <p className="text-xs font-medium text-red-800">
+              Delete "{course.name}"? Removes {engines.length} engines, {sessionCount} sessions,{" "}
+              {leakCount} leaks, {mockRunCount} mock runs, {mockDrillCount} drills.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => { deleteCourse(course.id); setDeletingId(null); }}
+                className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700">
+                Confirm Delete
+              </button>
+              <button onClick={() => setDeletingId(null)}
+                className="rounded border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Mastery bar */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-medium text-zinc-600">{total} engines</span>
+            <span className="font-semibold text-zinc-800">{mastery}% mastery</span>
+          </div>
+          <MaturityBar reliable={reliable} fragile={fragile} untested={untested} total={total} />
+          <div className="flex gap-4 text-[10px] text-zinc-400">
+            <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />{reliable} reliable</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />{fragile} fragile</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-zinc-300 mr-1" />{untested} untested</span>
+          </div>
+        </div>
+
+        {/* Maturity grid */}
+        <div className="grid grid-cols-3 gap-2">
+          {(["UNTESTED", "FRAGILE", "RELIABLE"] as const).map((rr) => (
+            <div key={rr} className="rounded-lg bg-zinc-50 border border-zinc-100 p-3 space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{rr}</p>
+              {(["SHAKY", "SOLID"] as const).map((c) => (
+                <div key={c} className="flex justify-between items-center">
+                  <span className="text-xs text-zinc-500">{c}</span>
+                  <span className="text-sm font-semibold text-zinc-900 font-mono">{grid[c][rr]}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Study next */}
+        {next.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Study next</p>
+            <div className="space-y-1">
+              {next.slice(0, 5).map((e) => (
+                <div key={e.id} className="flex items-center gap-1.5">
+                  <Link href={`/engines/${e.id}/edit`} className="p-1 text-zinc-300 hover:text-zinc-500 transition-colors shrink-0" title="Edit">✎</Link>
+                  <Link href={`/engines/${e.id}/test`}
+                    className="flex items-center justify-between rounded-lg px-3 py-2 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 hover:border-zinc-200 transition-all flex-1 min-w-0 group">
+                    <span className="text-sm text-zinc-800 truncate group-hover:text-zinc-900">{e.title}</span>
+                    <span className={`ml-2 shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border ${PILL[e.retrievalReliability]}`}>
+                      {e.retrievalReliability}
+                    </span>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Leak profile footer */}
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-100">
+          {leakProfile.totalCommitted > 0 ? (
+            <p className="text-xs text-zinc-500">
+              {leakProfile.totalCommitted} committed leaks ·{" "}
+              dominant: <span className="font-medium text-zinc-700">{leakProfile.dominant}</span>
+            </p>
+          ) : (
+            <p className="text-xs text-zinc-400">No committed leaks yet</p>
+          )}
+          <Link href="/leaks" className="text-xs text-zinc-400 hover:text-zinc-700 transition-colors">View leaks →</Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LoadErrorView() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-5 py-32 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center text-3xl">⚠</div>
+      <div>
+        <p className="text-base font-semibold text-zinc-900">Failed to load data</p>
+        <p className="text-sm text-zinc-500 mt-1">Check your connection and try refreshing the page.</p>
+      </div>
+      <button
+        onClick={() => window.location.reload()}
+        className="rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
+// ─── Dashboard ──────────────────────────────────────────────────────────────
+function DashboardContent() {
+  const { data, loading, loadError, isPro, deleteCourse } = useStore();
+  const { toast } = useToast();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("success") === "true") {
+      toast("Welcome to Engine Study Pro!", "success");
+    }
+    if (searchParams.get("canceled") === "true") {
+      toast("Subscription canceled", "info");
+    }
+  }, [searchParams, toast]);
+
+  const courseDataSlices = useMemo(() => {
+    if (loadError) return [];
+    return data.courses.map(course => {
+      const engines = data.engines.filter((e) => e.courseId === course.id);
+      const engineIds = new Set(engines.map((e) => e.id));
+      return {
+        course,
+        engines,
+        testSessions: data.testSessions.filter((s) => engineIds.has(s.engineId)),
+        leaks: data.leaks.filter((l) => l.courseId === course.id),
+        mockRuns: data.mockRuns.filter((m) => m.courseId === course.id),
+        mockDrills: data.mockDrills.filter((d) => d.items.some((i) => i.courseId === course.id))
+      };
+    });
+  }, [data, loadError]);
+
   if (loading) return <Skeleton />;
+  if (loadError) return <LoadErrorView />;
 
   if (data.courses.length === 0) {
     return (
@@ -115,7 +335,14 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Dashboard</h1>
+          {isPro && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+              Pro
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {data.engines.length >= 2 && (
             <Link href="/mocks/drill/new"
@@ -132,138 +359,21 @@ export default function DashboardPage() {
 
       <DailyBrief />
 
-      {data.courses.map((course) => {
-        const engines = data.engines.filter((e) => e.courseId === course.id);
-        const engineIds = new Set(engines.map((e) => e.id));
-        const sessionCount = data.testSessions.filter((s) => engineIds.has(s.engineId)).length;
-        const leakCount = data.leaks.filter((l) => l.courseId === course.id).length;
-        const mockRunCount = data.mockRuns.filter((m) => m.courseId === course.id).length;
-        const mockDrillCount = data.mockDrills.filter((d) => d.items.some((i) => i.courseId === course.id)).length;
-
-        const next = studyNext(engines, data.mockRuns);
-        const grid = maturityGrid(engines);
-        const leakProfile = computeLeakProfile(data.leaks, course.id, new Date().toISOString());
-        const hint = deriveDrillEmphasisHint(course.examProfile);
-
-        const reliable = (grid.SHAKY.RELIABLE + grid.SOLID.RELIABLE);
-        const fragile  = (grid.SHAKY.FRAGILE  + grid.SOLID.FRAGILE);
-        const untested = (grid.SHAKY.UNTESTED  + grid.SOLID.UNTESTED);
-        const total    = grid.total;
-        const mastery  = total > 0 ? Math.round((reliable / total) * 100) : 0;
-
-        return (
-          <section key={course.id} className="rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
-            {/* Course header */}
-            <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-4 border-b border-zinc-100">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Link href={`/courses/${course.id}`} className="font-semibold text-zinc-900 hover:text-zinc-600 transition-colors truncate">
-                    {course.name}
-                  </Link>
-                  <Link href={`/courses/${course.id}/edit`} className="text-zinc-300 hover:text-zinc-500 transition-colors" title="Edit">✎</Link>
-                  <button onClick={() => setDeletingId(course.id)} className="text-zinc-300 hover:text-red-500 transition-colors" title="Delete">×</button>
-                </div>
-                <p className="text-xs text-zinc-400 mt-0.5">Focus: {hint}</p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <Link href={`/courses/${course.id}/generate`}
-                  className="rounded-md border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors">
-                  AI Generate
-                </Link>
-                <Link href={`/engines/new/edit?courseId=${course.id}`}
-                  className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
-                  + Engine
-                </Link>
-              </div>
-            </div>
-
-            <div className="px-5 py-4 space-y-5">
-              {/* Delete confirmation */}
-              {deletingId === course.id && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
-                  <p className="text-xs font-medium text-red-800">
-                    Delete "{course.name}"? Removes {engines.length} engines, {sessionCount} sessions,{" "}
-                    {leakCount} leaks, {mockRunCount} mock runs, {mockDrillCount} drills.
-                  </p>
-                  <div className="flex gap-2">
-                    <button onClick={() => { deleteCourse(course.id); setDeletingId(null); }}
-                      className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700">
-                      Confirm Delete
-                    </button>
-                    <button onClick={() => setDeletingId(null)}
-                      className="rounded border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Mastery bar */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-zinc-600">{total} engines</span>
-                  <span className="font-semibold text-zinc-800">{mastery}% mastery</span>
-                </div>
-                <MaturityBar reliable={reliable} fragile={fragile} untested={untested} total={total} />
-                <div className="flex gap-4 text-[10px] text-zinc-400">
-                  <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />{reliable} reliable</span>
-                  <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />{fragile} fragile</span>
-                  <span><span className="inline-block w-2 h-2 rounded-full bg-zinc-300 mr-1" />{untested} untested</span>
-                </div>
-              </div>
-
-              {/* Maturity grid */}
-              <div className="grid grid-cols-3 gap-2">
-                {(["UNTESTED", "FRAGILE", "RELIABLE"] as const).map((rr) => (
-                  <div key={rr} className="rounded-lg bg-zinc-50 border border-zinc-100 p-3 space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{rr}</p>
-                    {(["SHAKY", "SOLID"] as const).map((c) => (
-                      <div key={c} className="flex justify-between items-center">
-                        <span className="text-xs text-zinc-500">{c}</span>
-                        <span className="text-sm font-semibold text-zinc-900 font-mono">{grid[c][rr]}</span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-
-              {/* Study next */}
-              {next.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Study next</p>
-                  <div className="space-y-1">
-                    {next.slice(0, 5).map((e) => (
-                      <div key={e.id} className="flex items-center gap-1.5">
-                        <Link href={`/engines/${e.id}/edit`} className="p-1 text-zinc-300 hover:text-zinc-500 transition-colors shrink-0" title="Edit">✎</Link>
-                        <Link href={`/engines/${e.id}/test`}
-                          className="flex items-center justify-between rounded-lg px-3 py-2 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 hover:border-zinc-200 transition-all flex-1 min-w-0 group">
-                          <span className="text-sm text-zinc-800 truncate group-hover:text-zinc-900">{e.title}</span>
-                          <span className={`ml-2 shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border ${PILL[e.retrievalReliability]}`}>
-                            {e.retrievalReliability}
-                          </span>
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Leak profile footer */}
-              <div className="flex items-center justify-between pt-1 border-t border-zinc-100">
-                {leakProfile.totalCommitted > 0 ? (
-                  <p className="text-xs text-zinc-500">
-                    {leakProfile.totalCommitted} committed leaks ·{" "}
-                    dominant: <span className="font-medium text-zinc-700">{leakProfile.dominant}</span>
-                  </p>
-                ) : (
-                  <p className="text-xs text-zinc-400">No committed leaks yet</p>
-                )}
-                <Link href="/leaks" className="text-xs text-zinc-400 hover:text-zinc-700 transition-colors">View leaks →</Link>
-              </div>
-            </div>
-          </section>
-        );
-      })}
+      {courseDataSlices.map((slice) => (
+        <CourseSection
+          key={slice.course.id}
+          {...slice}
+          deleteCourse={deleteCourse}
+        />
+      ))}
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<Skeleton />}>
+      <DashboardContent />
+    </Suspense>
   );
 }

@@ -6,7 +6,7 @@
  * Middleware guarantees the session exists before these handlers run.
  */
 import { auth } from "@/lib/auth";
-import { loadUserData, saveUserData } from "@/lib/db";
+import { loadUserData, saveUserData, getSubscription } from "@/lib/db";
 import { buildEnvelope, parseEnvelope } from "@/core/persistence";
 
 export async function GET() {
@@ -16,7 +16,14 @@ export async function GET() {
   }
 
   const { data, fresh } = await loadUserData(session.user.id);
-  return Response.json({ envelope: buildEnvelope(data), fresh });
+  const sub = await getSubscription(session.user.id);
+  const isPro = sub?.status === "active";
+
+  return Response.json({ 
+    envelope: buildEnvelope(data), 
+    fresh,
+    isPro
+  });
 }
 
 export async function PUT(req: Request) {

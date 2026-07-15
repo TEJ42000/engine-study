@@ -27,6 +27,8 @@ import type { CascadeCounts } from "@/core/mutations";
 interface StoreCtx {
   data: CosmosData;
   loading: boolean;
+  loadError: boolean;
+  isPro: boolean;
   syncStatus: "SAVED" | "SAVING" | "ERROR";
   setData: (next: CosmosData) => void;
   // F1
@@ -47,6 +49,7 @@ interface StoreCtx {
   // v1.1 Timed Mock Drill
   addMockDrill: (drill: MockDrill) => void;
   updateMockDrill: (drill: MockDrill) => void;
+  retryPersist: () => void;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -62,6 +65,9 @@ export function useStore(): StoreCtx {
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setRaw] = useState<CosmosData>(emptyData());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<boolean>(false);
+  const [isPro, setIsPro] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [syncStatus, setSyncStatus] = useState<"SAVED" | "SAVING" | "ERROR">("SAVED");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dataRef = useRef<CosmosData>(data);
@@ -84,10 +90,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     fetch("/api/data")
-      .then((r) => r.json())
-      .then(({ envelope }) => { if (envelope?.data) setRaw(envelope.data as CosmosData); })
-      .finally(() => setLoading(false));
+      .then(async (r) => {
+        if (!r.ok) throw new Error("Load failed");
+        const { envelope, isPro: pro } = await r.json();
+        if (mounted) {
+          if (envelope?.data) setRaw(envelope.data as CosmosData);
+          setIsPro(!!pro);
+          setHasLoaded(true);
+          setLoadError(false);
+        }
+      })
+      .catch((err) => {
+        console.error("[Store] Initial load error:", err);
+        if (mounted) setLoadError(true);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => { mounted = false; };
   }, []);
 
   const persist = useCallback((next: CosmosData) => {
@@ -111,8 +133,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const mutate = useCallback((fn: (d: CosmosData) => CosmosData) => {
+    if (!hasLoaded) {
+      console.warn("[Store] Mutation ignored: initial load has not succeeded.");
+      return;
+    }
     setRaw((prev) => { const next = fn(prev); persist(next); return next; });
-  }, [persist]);
+  }, [persist, hasLoaded]);
 
   const setData = useCallback((next: CosmosData) => { setRaw(next); persist(next); }, [persist]);
 
@@ -183,13 +209,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     mutate((d) => coreUpdateMockDrill(d, drill));
   }, [mutate]);
 
+  const retryPersist = useCallback(() => {
+    persist(dataRef.current);
+  }, [persist]);
+
   return (
     <Ctx.Provider value={{
-      data, loading, syncStatus, setData,
+      data, loading, loadError, isPro, syncStatus, setData,
       addCourse, updateCourse, deleteCourse,
       addEngine, updateEngine, deleteEngine,
       recordSession, addLeak, addMockRun, markMissDrilled,
-      addMockDrill, updateMockDrill,
+      addMockDrill, updateMockDrill, retryPersist,
     }}>
       {children}
     </Ctx.Provider>
