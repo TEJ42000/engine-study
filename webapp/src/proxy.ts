@@ -23,7 +23,7 @@ export const proxy = auth((request: NextRequest & { auth: any }) => {
           "Access-Control-Allow-Origin": origin!,
           "Access-Control-Allow-Credentials": "true",
           "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Extension-Token",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Extension-Token, X-Session-Token",
           "Access-Control-Max-Age": "86400",
         },
       });
@@ -38,7 +38,7 @@ export const proxy = auth((request: NextRequest & { auth: any }) => {
     response.headers.set("Access-Control-Allow-Origin", origin!);
     response.headers.set("Access-Control-Allow-Credentials", "true");
     response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Extension-Token");
+    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Extension-Token, X-Session-Token");
   }
 
   return response;

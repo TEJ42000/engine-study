@@ -1,32 +1,46 @@
-// Background service worker
-// - Receives token from webapp via externally_connectable (chrome.runtime.sendMessage)
-// - Also fetches token directly using session cookie (background can send cookies)
+// Background service worker.
+// Reads the Auth.js session cookie directly from Chrome's cookie jar
+// (chrome.cookies bypasses the SameSite=Lax restriction that stops the
+// cookie being sent on a normal cross-origin fetch), then exchanges it
+// for a short-lived extension token at /api/extension/token.
 
 const BACKEND_URL = "https://webapp-theta-beige.vercel.app";
 const STORAGE_KEY = "engine_study_token";
 
-// Called by the webapp page via chrome.runtime.sendMessage(EXTENSION_ID, ...)
-chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  if (message.type === "ENGINE_STUDY_TOKEN" && message.token) {
-    chrome.storage.local.set({ [STORAGE_KEY]: message.token }, () => {
-      sendResponse({ ok: true });
-    });
-    return true;
-  }
-});
+// Auth.js v5 cookie names (HTTPS uses the __Secure- prefix)
+const COOKIE_NAMES = [
+  "__Secure-authjs.session-token",
+  "authjs.session-token",
+];
 
-// Popup can ask background to fetch a fresh token using session cookies
-// (background fetch CAN send cookies; popup fetch cannot)
+async function readSessionCookie() {
+  for (const name of COOKIE_NAMES) {
+    const cookie = await chrome.cookies.get({ url: BACKEND_URL, name });
+    if (cookie?.value) return cookie.value;
+  }
+  return null;
+}
+
+async function fetchToken() {
+  const jwt = await readSessionCookie();
+  if (!jwt) return { ok: false, reason: "no-session" };
+
+  try {
+    const resp = await fetch(`${BACKEND_URL}/api/extension/token`, {
+      headers: { "X-Session-Token": jwt },
+    });
+    if (!resp.ok) return { ok: false, reason: `http-${resp.status}` };
+    const { token } = await resp.json();
+    await chrome.storage.local.set({ [STORAGE_KEY]: token });
+    return { ok: true, token };
+  } catch (e) {
+    return { ok: false, reason: "network" };
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "FETCH_TOKEN") {
-    fetch(`${BACKEND_URL}/api/extension/token`, { credentials: "include" })
-      .then(async (resp) => {
-        if (!resp.ok) { sendResponse({ ok: false }); return; }
-        const { token } = await resp.json();
-        chrome.storage.local.set({ [STORAGE_KEY]: token });
-        sendResponse({ ok: true, token });
-      })
-      .catch(() => sendResponse({ ok: false }));
-    return true; // keep channel open
+    fetchToken().then(sendResponse);
+    return true; // async
   }
 });
