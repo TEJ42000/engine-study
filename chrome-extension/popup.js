@@ -49,7 +49,7 @@ async function getAuthToken() {
 
   // 2. Exchange the raw JWT for a stable extension token
   try {
-    const resp = await fetch(`${BACKEND_URL}/api/extension/token`, {
+    const resp = await fetch(`${BACKEND_URL}/api/ext-auth`, {
       headers: { "X-Session-Token": jwt }
     });
     if (!resp.ok) return { ok: false, error: `server-${resp.status}` };

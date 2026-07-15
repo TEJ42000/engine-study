@@ -39,7 +39,7 @@ async function fetchToken() {
   }
 
   try {
-    const resp = await fetch(`${BACKEND_URL}/api/extension/token`, {
+    const resp = await fetch(`${BACKEND_URL}/api/ext-auth`, {
       headers: { "X-Session-Token": cookieResult.value },
     });
     if (!resp.ok) {
