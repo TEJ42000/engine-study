@@ -21,15 +21,19 @@ export async function GET(req: Request) {
   if (!userId) {
     const raw = req.headers.get("X-Session-Token");
     if (raw) {
-      try {
-        const decoded = await decode({
-          token: raw,
-          secret: process.env.AUTH_SECRET!,
-          salt: "__Secure-authjs.session-token",
-        });
-        if (decoded?.sub) userId = decoded.sub;
-      } catch {
-        // fall through to unauthorized
+      // Try both salts Auth.js v5 may use (HTTPS vs HTTP / Vercel vs local)
+      const salts = ["__Secure-authjs.session-token", "authjs.session-token"];
+      for (const salt of salts) {
+        try {
+          const decoded = await decode({
+            token: raw,
+            secret: process.env.AUTH_SECRET!,
+            salt,
+          });
+          if (decoded?.sub) { userId = decoded.sub; break; }
+        } catch {
+          // try next salt
+        }
       }
     }
   }

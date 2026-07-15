@@ -7,12 +7,27 @@ const ALLOWED_ORIGINS = [
   "https://webapp-theta-beige.vercel.app",
 ];
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Credentials": "true",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Extension-Token, X-Session-Token",
+};
+
+function addCors(response: NextResponse, origin: string) {
+  response.headers.set("Access-Control-Allow-Origin", origin);
+  for (const [k, v] of Object.entries(CORS_HEADERS)) response.headers.set(k, v);
+  return response;
+}
+
 // Combine Auth.js middleware with custom CORS logic for Next.js 16 Proxy
 export const proxy = auth((request: NextRequest & { auth: any }) => {
-  const origin = request.headers.get("origin");
+  const origin = request.headers.get("origin") ?? "";
   const isAllowed =
-    origin &&
-    (ALLOWED_ORIGINS.includes(origin) || origin.startsWith("chrome-extension://"));
+    ALLOWED_ORIGINS.includes(origin) || origin.startsWith("chrome-extension://");
+  const pathname = request.nextUrl.pathname;
+
+  // Extension API routes — always allow through (auth handled inside the route)
+  const isExtensionRoute = pathname.startsWith("/api/extension/");
 
   // Handle CORS Preflight (OPTIONS)
   if (request.method === "OPTIONS") {
@@ -20,10 +35,8 @@ export const proxy = auth((request: NextRequest & { auth: any }) => {
       return new NextResponse(null, {
         status: 204,
         headers: {
-          "Access-Control-Allow-Origin": origin!,
-          "Access-Control-Allow-Credentials": "true",
-          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Extension-Token, X-Session-Token",
+          "Access-Control-Allow-Origin": origin,
+          ...CORS_HEADERS,
           "Access-Control-Max-Age": "86400",
         },
       });
@@ -31,16 +44,15 @@ export const proxy = auth((request: NextRequest & { auth: any }) => {
     return new NextResponse(null, { status: 204 });
   }
 
-  const response = NextResponse.next();
-
-  // Attach CORS headers to response
-  if (isAllowed) {
-    response.headers.set("Access-Control-Allow-Origin", origin!);
-    response.headers.set("Access-Control-Allow-Credentials", "true");
-    response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Extension-Token, X-Session-Token");
+  // Let extension routes through without auth redirect
+  if (isExtensionRoute) {
+    const response = NextResponse.next();
+    if (isAllowed) addCors(response, origin);
+    return response;
   }
 
+  const response = NextResponse.next();
+  if (isAllowed) addCors(response, origin);
   return response;
 });
 

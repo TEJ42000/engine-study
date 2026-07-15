@@ -16,13 +16,6 @@ function setStatus(msg, isError = false) {
   statusDiv.style.color = isError ? '#dc2626' : '#666';
 }
 
-function showNotLoggedIn() {
-  fileListDiv.innerHTML = `<p style="font-size:12px;line-height:1.6;color:#333;">
-    <a href="${BACKEND_URL}" target="_blank" style="color:#2563eb;font-weight:600;">Sign in to Engine Study</a>
-    in this browser, then re-open this popup.</p>`;
-  setStatus("Not logged in", true);
-}
-
 function renderFiles() {
   fileListDiv.innerHTML = '';
   if (detectedFiles.length === 0) {
@@ -39,49 +32,75 @@ function renderFiles() {
   uploadBtn.disabled = false;
 }
 
+async function getAuthToken() {
+  // 1. Read session cookie directly from Chrome's cookie jar (bypasses SameSite=Lax)
+  const cookieNames = ["__Secure-authjs.session-token", "authjs.session-token"];
+  let jwt = null;
+  for (const name of cookieNames) {
+    const cookie = await new Promise(r =>
+      chrome.cookies.get({ url: BACKEND_URL, name }, r)
+    );
+    if (cookie?.value) { jwt = cookie.value; break; }
+  }
+
+  if (!jwt) {
+    return { ok: false, error: 'not-logged-in' };
+  }
+
+  // 2. Exchange the raw JWT for a stable extension token
+  try {
+    const resp = await fetch(`${BACKEND_URL}/api/extension/token`, {
+      headers: { "X-Session-Token": jwt }
+    });
+    if (!resp.ok) return { ok: false, error: `server-${resp.status}` };
+    const { token } = await resp.json();
+    chrome.storage.local.set({ [STORAGE_KEY]: token });
+    return { ok: true, token };
+  } catch (e) {
+    // Offline: try stale cached token
+    const cached = await new Promise(r =>
+      chrome.storage.local.get(STORAGE_KEY, d => r(d[STORAGE_KEY] || null))
+    );
+    if (cached) return { ok: true, token: cached };
+    return { ok: false, error: 'network' };
+  }
+}
+
 async function init() {
   setStatus("Connecting...");
 
-  // 1. Ask background to fetch a fresh token via session cookie
-  //    (background service workers can send cookies; popups cannot)
-  const result = await new Promise(r =>
-    chrome.runtime.sendMessage({ type: "FETCH_TOKEN" }, r)
-  );
+  const auth = await getAuthToken();
 
-  if (result?.ok && result.token) {
-    extensionToken = result.token;
-  } else {
-    // Fall back to cached token
-    extensionToken = await new Promise(r =>
-      chrome.storage.local.get(STORAGE_KEY, d => r(d[STORAGE_KEY] || null))
-    );
-  }
-
-  if (!extensionToken) {
-    showNotLoggedIn();
+  if (!auth.ok) {
+    fileListDiv.innerHTML = `<p style="font-size:12px;line-height:1.6;color:#333;">
+      <a href="${BACKEND_URL}" target="_blank" style="color:#2563eb;font-weight:600;">Sign in to Engine Study</a>
+      in this browser, then re-open this popup.<br>
+      <span style="color:#aaa;font-size:10px;">Reason: ${auth.error}</span></p>`;
+    setStatus("Not logged in", true);
     return;
   }
 
-  // 2. Scan the current Brightspace tab
+  extensionToken = auth.token;
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   activeTabId = tab.id;
 
   if (!tab.url?.includes('brightspace')) {
     fileListDiv.innerText = "Navigate to a Brightspace course page to detect files.";
-    setStatus("Connected ✓");
+    setStatus("Connected \u2713");
     return;
   }
 
   chrome.tabs.sendMessage(tab.id, { action: "scan" }, (response) => {
     if (chrome.runtime.lastError || !response) {
       fileListDiv.innerText = "Could not scan page. Try refreshing the Brightspace tab.";
-      setStatus("Connected ✓");
+      setStatus("Connected \u2713");
       return;
     }
     detectedFiles = response.files || [];
     detectedCourse = response.courseName || "";
     if (courseTitleH1) courseTitleH1.innerText = detectedCourse || "Course Content";
-    setStatus(detectedFiles.length > 0 ? `${detectedFiles.length} file(s) found ✓` : "Connected ✓");
+    setStatus(detectedFiles.length > 0 ? `${detectedFiles.length} file(s) found \u2713` : "Connected \u2713");
     renderFiles();
   });
 }
@@ -134,7 +153,7 @@ uploadBtn.addEventListener('click', async () => {
 
     if (resp.ok) {
       const result = await resp.json();
-      setStatus("✓ Done! Opening course builder...");
+      setStatus("\u2713 Done! Opening course builder...");
       const params = encodeURIComponent(JSON.stringify(result));
       setTimeout(() => {
         chrome.tabs.create({ url: `${BACKEND_URL}/courses/new?extracted=${params}` });
@@ -143,7 +162,9 @@ uploadBtn.addEventListener('click', async () => {
       const err = await resp.json().catch(() => ({}));
       if (resp.status === 401) {
         chrome.storage.local.remove(STORAGE_KEY);
-        showNotLoggedIn();
+        fileListDiv.innerHTML = `<p style="font-size:12px;line-height:1.6;color:#333;">
+          Session expired. <a href="${BACKEND_URL}" target="_blank" style="color:#2563eb;">Sign in again</a>, then re-open this popup.</p>`;
+        setStatus("Session expired", true);
       } else {
         setStatus(`Error: ${err.error || `Server error ${resp.status}`}`, true);
       }
