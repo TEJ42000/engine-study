@@ -116,7 +116,6 @@ function CourseSection({
     next, grid, leakProfile, hint,
     reliable, fragile, untested, total, mastery
   } = useMemo(() => {
-    const engineIds = new Set(engines.map((e) => e.id));
     const sCount = testSessions.length;
     const lCount = leaks.length;
     const mrCount = mockRuns.length;
@@ -149,6 +148,8 @@ function CourseSection({
       mastery: mas
     };
   }, [course, engines, testSessions, leaks, mockRuns, mockDrills]);
+
+  const masteryHint = `Mastery — the share of this course's engines rated Reliable (${reliable} of ${total}), i.e. how much you can recall reliably under test conditions.`;
 
   return (
     <section key={course.id} className="rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
@@ -201,7 +202,14 @@ function CourseSection({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="font-medium text-zinc-600">{total} engines</span>
-            <span className="font-semibold text-zinc-800">{mastery}% mastery</span>
+            <span
+              tabIndex={0}
+              className="font-semibold text-zinc-800 cursor-help rounded focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              title={masteryHint}
+              aria-label={masteryHint}
+            >
+              {mastery}% mastery
+            </span>
           </div>
           <MaturityBar reliable={reliable} fragile={fragile} untested={untested} total={total} />
           <div className="flex gap-4 text-[10px] text-zinc-400">

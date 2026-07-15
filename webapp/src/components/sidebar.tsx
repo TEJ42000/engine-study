@@ -5,7 +5,6 @@ import { signOut } from "next-auth/react";
 import { useState } from "react";
 import type { Session } from "next-auth";
 import { SyncStatus } from "./sync-status";
-
 import { useStore } from "@/lib/store";
 
 const NAV = [

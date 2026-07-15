@@ -38,8 +38,11 @@ export async function GET() {
     return Response.json({ brief: "Daily AI limit reached. Upgrade to Pro for unlimited drills." }, { status: 429 });
   }
 
+  // Increment BEFORE the call to avoid race conditions.
+  await incrementAiUsage(session.user.id, "mark");
+
   const studyList = atRisk
-    .map(e => `- "${e.title.replace(/"/g, "'")}" (${e.comprehension}/${e.retrievalReliability})`)
+    .map(e => `- "${e.title.replace(/[\r\n\t\v\f\u0085\u2028\u2029]+/g, " ").replace(/"/g, "'")}" (${e.comprehension}/${e.retrievalReliability})`)
     .join("\n");
 
   const system = `You are a strict law-exam coach. Zero flattery. Zero filler.
@@ -62,9 +65,6 @@ Do NOT use phrases like "great job", "well done", or "keep it up".`;
     console.error("[AI brief] upstream error:", msg);
     return Response.json({ brief: "Daily brief unavailable. Try again later." }, { status: 200 });
   }
-
-  // Increment AFTER successful call (mark counter — same tier).
-  await incrementAiUsage(session.user.id, "mark");
 
   return Response.json({ brief });
 }
