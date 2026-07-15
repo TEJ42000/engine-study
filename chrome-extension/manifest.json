@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Engine Study - Brightspace Sync",
-  "version": "1.6",
+  "version": "1.7",
   "description": "Detect and upload course materials from Brightspace to Engine Study.",
   "permissions": [
     "activeTab",
@@ -11,6 +11,8 @@
   ],
   "host_permissions": [
     "https://*.brightspace.com/*",
+    "https://*.brightspace.nl/*",
+    "https://*.rug.nl/*",
     "https://*.augmentusercontent.com/*",
     "https://webapp-theta-beige.vercel.app/*"
   ],
@@ -22,7 +24,11 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*.brightspace.com/*"],
+      "matches": [
+        "https://*.brightspace.com/*",
+        "https://*.brightspace.nl/*",
+        "https://*.rug.nl/*"
+      ],
       "js": ["content.js"]
     }
   ]

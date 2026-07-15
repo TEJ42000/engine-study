@@ -3,11 +3,12 @@
  * F1 — Create course (AC1.1).
  * Captures name + four ExamProfile fields and delegates to the store.
  */
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import type { ExamProfile } from "@/core/types";
 import { SyllabusUploader, type ExtractedCourse } from "@/components/syllabus-uploader";
+import { Suspense } from "react";
 
 const DEFAULT_PROFILE: ExamProfile = {
   openBook: false,
@@ -16,14 +17,26 @@ const DEFAULT_PROFILE: ExamProfile = {
   modes: [],
 };
 
-export default function NewCoursePage() {
+function NewCoursePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { addCourse } = useStore();
   const [name, setName] = useState("");
   const [profile, setProfile] = useState<ExamProfile>(DEFAULT_PROFILE);
   const [modesInput, setModesInput] = useState("");
   const [error, setError] = useState("");
   const [aiPrefilled, setAiPrefilled] = useState(false);
+
+  // Pre-fill from Chrome extension upload (?extracted=<json>)
+  useEffect(() => {
+    const raw = searchParams.get("extracted");
+    if (!raw) return;
+    try {
+      const data = JSON.parse(decodeURIComponent(raw)) as ExtractedCourse;
+      handleExtracted(data);
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleExtracted(data: ExtractedCourse) {
     setName(data.courseName || "");
@@ -140,5 +153,13 @@ export default function NewCoursePage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function NewCoursePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-sm text-zinc-400">Loading...</div>}>
+      <NewCoursePageInner />
+    </Suspense>
   );
 }
