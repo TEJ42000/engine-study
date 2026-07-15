@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Engine Study - Brightspace Sync",
-  "version": "1.7",
+  "version": "1.8",
   "description": "Detect and upload course materials from Brightspace to Engine Study.",
   "permissions": [
     "activeTab",
