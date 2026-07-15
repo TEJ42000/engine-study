@@ -6,6 +6,7 @@ import JSZip from "jszip";
 const DAILY_EXTRACT_LIMIT = 10;
 
 export const maxDuration = 60;
+export const config = { api: { bodyParser: { sizeLimit: '20mb' } } };
 
 /**
  * PPTX text extraction using jszip.

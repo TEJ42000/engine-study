@@ -121,7 +121,7 @@ uploadBtn.addEventListener('click', async () => {
   }
 
   // Send in batches of 4 to stay under Vercel's 4.5MB body limit
-  const BATCH_SIZE = 4;
+  const BATCH_SIZE = 1;
   const selectedFiles = selectedIndices.map(i => detectedFiles[i]);
   const batchCount = Math.ceil(selectedFiles.length / BATCH_SIZE);
   let lastResult = null;
