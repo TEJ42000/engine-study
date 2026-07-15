@@ -1,3 +1,4 @@
+import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -6,12 +7,14 @@ const ALLOWED_ORIGINS = [
   "https://webapp-theta-beige.vercel.app",
 ];
 
-export function proxy(request: NextRequest) {
+// Combine Auth.js middleware with custom CORS logic for Next.js 16 Proxy
+export const proxy = auth((request: NextRequest & { auth: any }) => {
   const origin = request.headers.get("origin");
   const isAllowed =
     origin &&
     (ALLOWED_ORIGINS.includes(origin) || origin.startsWith("chrome-extension://"));
 
+  // Handle CORS Preflight (OPTIONS)
   if (request.method === "OPTIONS") {
     if (isAllowed) {
       return new NextResponse(null, {
@@ -30,6 +33,7 @@ export function proxy(request: NextRequest) {
 
   const response = NextResponse.next();
 
+  // Attach CORS headers to response
   if (isAllowed) {
     response.headers.set("Access-Control-Allow-Origin", origin!);
     response.headers.set("Access-Control-Allow-Credentials", "true");
@@ -38,8 +42,19 @@ export function proxy(request: NextRequest) {
   }
 
   return response;
-}
+});
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: [
+    // Auth-protected app routes
+    "/dashboard/:path*",
+    "/courses/:path*",
+    "/engines/:path*",
+    "/leaks/:path*",
+    "/mocks/:path*",
+    "/data/:path*",
+    // CORS + Auth-protected API routes
+    "/api/data/:path*",
+    "/api/ai/:path*",
+  ],
 };
