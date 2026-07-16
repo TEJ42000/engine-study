@@ -1,6 +1,6 @@
-import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
 
 const ALLOWED_ORIGINS = [
   "https://tnl-we7lpbg22l5bo-engine-study-dev.augmentusercontent.com",
@@ -13,25 +13,37 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Extension-Token, X-Session-Token",
 };
 
-function addCors(response: NextResponse, origin: string) {
+function isAllowed(origin: string): boolean {
+  return ALLOWED_ORIGINS.includes(origin) || origin.startsWith("chrome-extension://");
+}
+
+function addCors(response: NextResponse, origin: string): NextResponse {
   response.headers.set("Access-Control-Allow-Origin", origin);
   for (const [k, v] of Object.entries(CORS_HEADERS)) response.headers.set(k, v);
   return response;
 }
 
-// Combine Auth.js middleware with custom CORS logic for Next.js 16 Proxy
-export const proxy = auth((request: NextRequest & { auth: any }) => {
+// Auth-wrapped handler for non-OPTIONS requests — adds CORS to outgoing responses.
+// Auth.js v5 provides request.auth; extension routes bypass auth (handled in-route).
+const withAuth = auth((request: NextRequest & { auth: any }) => {
   const origin = request.headers.get("origin") ?? "";
-  const isAllowed =
-    ALLOWED_ORIGINS.includes(origin) || origin.startsWith("chrome-extension://");
-  const pathname = request.nextUrl.pathname;
+  const response = NextResponse.next();
+  if (isAllowed(origin)) addCors(response, origin);
+  return response;
+});
 
-  // Extension API routes — always allow through (auth handled inside the route)
-  const isExtensionRoute = pathname.startsWith("/api/extension/");
+/**
+ * Next.js 16 Proxy
+ *
+ * OPTIONS preflight is handled here — BEFORE the auth() wrapper — so that
+ * cross-origin preflights are never intercepted by Auth.js and redirected to
+ * the sign-in page (which would strip the CORS headers).
+ */
+export async function proxy(request: NextRequest) {
+  const origin = request.headers.get("origin") ?? "";
 
-  // Handle CORS Preflight (OPTIONS)
   if (request.method === "OPTIONS") {
-    if (isAllowed) {
+    if (isAllowed(origin)) {
       return new NextResponse(null, {
         status: 204,
         headers: {
@@ -44,17 +56,9 @@ export const proxy = auth((request: NextRequest & { auth: any }) => {
     return new NextResponse(null, { status: 204 });
   }
 
-  // Let extension routes through without auth redirect
-  if (isExtensionRoute) {
-    const response = NextResponse.next();
-    if (isAllowed) addCors(response, origin);
-    return response;
-  }
-
-  const response = NextResponse.next();
-  if (isAllowed) addCors(response, origin);
-  return response;
-});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (withAuth as any)(request);
+}
 
 export const config = {
   matcher: [
